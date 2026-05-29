@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "913110730800",
+    "project_id": "eventsprouts-app",
+    "storage_bucket": "eventsprouts-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:913110730800:android:178e3e27fc3340820785f5",
+        "android_client_info": {
+          "package_name": "de.synthisoft.eventsprouts"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "913110730800-jqf5p7qotcu0kjdmbp03echjn3udc9qn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "de.synthisoft.eventsprouts",
+            "certificate_hash": "e8d6f0eab52402ee2198d7ffd9868f61c92cc0c8"
+          }
+        },
+        {
+          "client_id": "913110730800-r1l451mkicvvqhtfk4gadsn9iv8p8umc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCata3JA6HidfHSy2Gp1-XKh3HC4ONVKLw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "913110730800-r1l451mkicvvqhtfk4gadsn9iv8p8umc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "913110730800-cjnpsc6aurad2frh82mcr6vkounk1s74.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "de.synthisoft.eventsprouts"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:913110730800:android:138462a5264176f70785f5",
+        "android_client_info": {
+          "package_name": "de.synthisoft.sprouts_manager"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "913110730800-r1l451mkicvvqhtfk4gadsn9iv8p8umc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCata3JA6HidfHSy2Gp1-XKh3HC4ONVKLw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "913110730800-r1l451mkicvvqhtfk4gadsn9iv8p8umc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "913110730800-cjnpsc6aurad2frh82mcr6vkounk1s74.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "de.synthisoft.eventsprouts"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

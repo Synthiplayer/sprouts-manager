@@ -1,0 +1,22 @@
+﻿{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "eventsprouts-app",
+          "appId": "1:913110730800:android:138462a5264176f70785f5",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "eventsprouts-app",
+          "configurations": {
+            "android": "1:913110730800:android:138462a5264176f70785f5",
+            "web": "1:913110730800:web:d662edd700fa48140785f5"
+          }
+        }
+      }
+    }
+  }
+}
