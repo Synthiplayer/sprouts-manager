@@ -1,7 +1,9 @@
 ﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/location_enums.dart';
 import '../domain/location_gema_profile.dart';
 import '../domain/location_model.dart';
+import '../domain/location_setup.dart';
 
 final locationListProvider =
     StateNotifierProvider<LocationListNotifier, List<LocationModel>>(
@@ -29,14 +31,12 @@ class LocationListNotifier extends StateNotifier<List<LocationModel>> {
         isAccessible: false,
         standingCapacity: 120,
         seatingCapacity: 40,
-        baseRent: 1200,
-        revenueSharePercent: 8,
-        minimumRent: 1000,
-        deposit: 500,
-        cleaningFee: 140,
-        utilityFee: 90,
-        requiresSecurity: true,
+        assemblyVenueReviewStatus:
+            AssemblyVenueReviewStatus.approvedBelowThreshold,
+        authorityNote:
+            'Genehmigung unter Versammlungsstätten-Schwelle dokumentiert.',
         requiresTechnicalSetup: true,
+        securityReviewNote: 'Securitybedarf je Event prüfen.',
         infrastructureNote: 'Kompakte Bühne vorhanden, Lichttechnik begrenzt.',
         parkingNote: 'Nur wenige Stellplätze.',
         accessNote: 'Anlieferung über Hintereingang bis 17:00 Uhr.',
@@ -53,6 +53,19 @@ class LocationListNotifier extends StateNotifier<List<LocationModel>> {
             notes: 'Hauptfläche für Gäste.',
           ),
         ],
+        setups: const [
+          LocationSetup(
+            id: 'setup_club_party',
+            name: 'Disco stehend',
+            setupType: LocationSetupType.standingParty,
+            capacity: 120,
+            defaultBaseRent: 1200,
+            defaultGemaProfileId: 'gema_clubraum',
+            defaultGemaEventType: GemaEventType.party,
+            securityNote: 'Securitybedarf je Besucherzahl prüfen.',
+            technicalNote: 'Hauslicht ausreichend, DJ-Setup extern.',
+          ),
+        ],
       ),
       LocationModel(
         id: 'loc_metropol',
@@ -66,18 +79,16 @@ class LocationListNotifier extends StateNotifier<List<LocationModel>> {
         isAccessible: true,
         standingCapacity: 850,
         seatingCapacity: 420,
-        baseRent: 6400,
-        revenueSharePercent: 12,
-        minimumRent: 5000,
-        deposit: 2500,
-        cleaningFee: 550,
-        utilityFee: 420,
-        requiresSecurity: true,
+        assemblyVenueReviewStatus:
+            AssemblyVenueReviewStatus.approvedAsAssemblyVenue,
+        authorityNote: 'Aktuelle behördliche Genehmigung liegt vor.',
         requiresStage: true,
         requiresTechnicalSetup: true,
         hasCateringRestriction: true,
+        securityReviewNote: 'Securitybedarf je Event prüfen.',
         mixedCapacityNote: 'Flexible Bestuhlung je nach Setup.',
-        infrastructureNote: 'Feste Bühne, professionelles Licht- und Tonteam optional.',
+        infrastructureNote:
+            'Feste Bühne, professionelles Licht- und Tonteam optional.',
         parkingNote: 'Tiefgarage verfügbar, Höhe 2,10m.',
         accessNote: 'Rollstuhlgerechter Haupteingang vorhanden.',
         gemaProfiles: const [
@@ -115,6 +126,101 @@ class LocationListNotifier extends StateNotifier<List<LocationModel>> {
             notes: 'Interner Bereich, nicht für Gäste.',
           ),
         ],
+        setups: const [
+          LocationSetup(
+            id: 'setup_metropol_party',
+            name: 'Disco stehend',
+            setupType: LocationSetupType.standingParty,
+            capacity: 850,
+            defaultBaseRent: 6400,
+            defaultGemaProfileId: 'gema_saal',
+            defaultGemaEventType: GemaEventType.party,
+            securityNote: 'Securitybedarf je Besucherzahl prüfen.',
+            technicalNote:
+                'Hausanlage nur bedingt geeignet, externe PA bei großer Party prüfen.',
+          ),
+          LocationSetup(
+            id: 'setup_metropol_seated_concert',
+            name: 'Konzert bestuhlt',
+            setupType: LocationSetupType.seatedConcert,
+            capacity: 420,
+            defaultBaseRent: 6400,
+            defaultGemaProfileId: 'gema_saal',
+            defaultGemaEventType: GemaEventType.concert,
+            technicalNote: 'Bühne vorhanden, externe Konzerttechnik prüfen.',
+          ),
+          LocationSetup(
+            id: 'setup_metropol_private',
+            name: 'Geschlossene Gesellschaft',
+            setupType: LocationSetupType.privateEvent,
+            capacity: 300,
+            defaultBaseRent: 4000,
+            defaultGemaProfileId: 'gema_saal',
+            defaultGemaEventType: GemaEventType.privateEvent,
+          ),
+        ],
+      ),
+      LocationModel(
+        id: 'loc_seminar_hall',
+        name: 'Seminarturnhalle',
+        street: 'Campusweg 21',
+        zipCode: '48149',
+        city: 'Münster',
+        description: 'Sport- und Mehrzweckhalle für flexible Formate.',
+        isIndoor: true,
+        isOutdoor: false,
+        isAccessible: true,
+        standingCapacity: 280,
+        seatingCapacity: 220,
+        assemblyVenueReviewStatus: AssemblyVenueReviewStatus.needsReview,
+        authorityNote:
+            'Je nach Aufbau und Fluchtwegen ist die nutzbare Kapazität unterschiedlich.',
+        requiresTechnicalSetup: true,
+        securityReviewNote: 'Securitybedarf je Event prüfen.',
+        mixedCapacityNote: 'Bei Filmabend feste Sitzreihen, bei Party freie Fläche.',
+        gemaProfiles: const [
+          LocationGemaProfile(
+            id: 'gema_turnhalle',
+            areaName: 'Hallenteil A',
+            isEventArea: true,
+            allowedPersons: 220,
+            areaSizeSqm: 420,
+            concertFee: 360,
+            partyFee: 430,
+            privateEventFee: 280,
+          ),
+        ],
+        setups: const [
+          LocationSetup(
+            id: 'setup_seminar_movie',
+            name: 'Filmabend sitzend',
+            setupType: LocationSetupType.movieNight,
+            capacity: 220,
+            defaultBaseRent: 1800,
+            defaultGemaProfileId: 'gema_turnhalle',
+            defaultGemaEventType: GemaEventType.concert,
+            seatingNote: 'Reihenbestuhlung mit Mittelgang einplanen.',
+          ),
+          LocationSetup(
+            id: 'setup_seminar_party',
+            name: 'Stehparty',
+            setupType: LocationSetupType.standingParty,
+            capacity: 280,
+            defaultBaseRent: 2100,
+            defaultGemaProfileId: 'gema_turnhalle',
+            defaultGemaEventType: GemaEventType.party,
+          ),
+          LocationSetup(
+            id: 'setup_seminar_dinner',
+            name: 'Dinnerparty',
+            setupType: LocationSetupType.dinner,
+            capacity: 120,
+            defaultBaseRent: 1950,
+            defaultGemaProfileId: 'gema_turnhalle',
+            defaultGemaEventType: GemaEventType.privateEvent,
+            seatingNote: 'Runde Tische mit Servicewegen berücksichtigen.',
+          ),
+        ],
       ),
       LocationModel(
         id: 'loc_eishalle',
@@ -128,19 +234,15 @@ class LocationListNotifier extends StateNotifier<List<LocationModel>> {
         isAccessible: true,
         standingCapacity: 3200,
         seatingCapacity: 1600,
-        baseRent: 12000,
-        revenueSharePercent: 15,
-        minimumRent: 9000,
-        deposit: 4000,
-        cleaningFee: 1400,
-        utilityFee: 1100,
+        assemblyVenueReviewStatus:
+            AssemblyVenueReviewStatus.approvedAsAssemblyVenue,
+        authorityNote: 'Saisonale Auflagen jährlich prüfen.',
         requiresToiletTrailer: true,
         requiresFirstAid: true,
         requiresBarriers: true,
-        requiresSecurity: true,
         requiresStage: true,
         requiresTechnicalSetup: true,
-        variableCostNote: 'Saisonabhängig stark schwankende Nebenkosten.',
+        securityReviewNote: 'Securitybedarf je Event prüfen.',
         infrastructureNote: 'Sommerbetrieb nur mit zusätzlicher Infrastruktur.',
         parkingNote: 'Große Parkflächen für Besucher und Crew.',
         accessNote: 'Mehrere Zugänge, Crowd-Management erforderlich.',
@@ -155,6 +257,37 @@ class LocationListNotifier extends StateNotifier<List<LocationModel>> {
             partyFee: 2800,
             privateEventFee: 1700,
             notes: 'Zentrale Gästefläche für Großevents.',
+          ),
+        ],
+        setups: const [
+          LocationSetup(
+            id: 'setup_eis_summer_party',
+            name: 'Sommer-Party stehend',
+            setupType: LocationSetupType.standingParty,
+            capacity: 3000,
+            defaultBaseRent: 12000,
+            defaultGemaProfileId: 'gema_hallenflaeche',
+            defaultGemaEventType: GemaEventType.party,
+            securityNote: 'Erhöhte Security-Staffelung einplanen.',
+          ),
+          LocationSetup(
+            id: 'setup_eis_public_viewing',
+            name: 'Public Viewing',
+            setupType: LocationSetupType.publicViewing,
+            capacity: 2500,
+            defaultBaseRent: 9000,
+            defaultGemaProfileId: 'gema_hallenflaeche',
+            defaultGemaEventType: GemaEventType.party,
+          ),
+          LocationSetup(
+            id: 'setup_eis_concert',
+            name: 'Konzertfläche',
+            setupType: LocationSetupType.standingConcert,
+            capacity: 2800,
+            defaultBaseRent: 12500,
+            defaultGemaProfileId: 'gema_hallenflaeche',
+            defaultGemaEventType: GemaEventType.concert,
+            technicalNote: 'Line-Array und Delay-Lines einplanen.',
           ),
         ],
       ),
@@ -180,3 +313,4 @@ class LocationListNotifier extends StateNotifier<List<LocationModel>> {
     state = state.where((item) => item.id != id).toList();
   }
 }
+

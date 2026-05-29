@@ -1,4 +1,6 @@
-﻿import 'location_gema_profile.dart';
+﻿import 'location_enums.dart';
+import 'location_gema_profile.dart';
+import 'location_setup.dart';
 
 class LocationModel {
   final String id;
@@ -14,28 +16,26 @@ class LocationModel {
   final int standingCapacity;
   final int seatingCapacity;
   final String mixedCapacityNote;
+  final int allowedCapacity;
+  final CapacityMode capacityMode;
 
-  final double baseRent;
-  final double revenueSharePercent;
-  final double minimumRent;
-  final double deposit;
-  final double cleaningFee;
-  final double utilityFee;
-  final String variableCostNote;
+  final AssemblyVenueReviewStatus assemblyVenueReviewStatus;
+  final String authorityNote;
 
   final bool requiresToiletTrailer;
   final bool requiresFirstAid;
-  final bool requiresSecurity;
   final bool requiresBarriers;
   final bool requiresStage;
   final bool requiresTechnicalSetup;
   final bool hasCateringRestriction;
+  final String securityReviewNote;
 
   final String infrastructureNote;
   final String parkingNote;
   final String accessNote;
 
   final List<LocationGemaProfile> gemaProfiles;
+  final List<LocationSetup> setups;
 
   const LocationModel({
     required this.id,
@@ -50,24 +50,22 @@ class LocationModel {
     this.standingCapacity = 0,
     this.seatingCapacity = 0,
     this.mixedCapacityNote = '',
-    this.baseRent = 0,
-    this.revenueSharePercent = 0,
-    this.minimumRent = 0,
-    this.deposit = 0,
-    this.cleaningFee = 0,
-    this.utilityFee = 0,
-    this.variableCostNote = '',
+    this.allowedCapacity = 0,
+    this.capacityMode = CapacityMode.unknown,
+    this.assemblyVenueReviewStatus = AssemblyVenueReviewStatus.unclear,
+    this.authorityNote = '',
     this.requiresToiletTrailer = false,
     this.requiresFirstAid = false,
-    this.requiresSecurity = false,
     this.requiresBarriers = false,
     this.requiresStage = false,
     this.requiresTechnicalSetup = false,
     this.hasCateringRestriction = false,
+    this.securityReviewNote = 'Securitybedarf je Event prüfen.',
     this.infrastructureNote = '',
     this.parkingNote = '',
     this.accessNote = '',
     this.gemaProfiles = const [],
+    this.setups = const [],
   });
 
   LocationModel copyWith({
@@ -83,24 +81,22 @@ class LocationModel {
     int? standingCapacity,
     int? seatingCapacity,
     String? mixedCapacityNote,
-    double? baseRent,
-    double? revenueSharePercent,
-    double? minimumRent,
-    double? deposit,
-    double? cleaningFee,
-    double? utilityFee,
-    String? variableCostNote,
+    int? allowedCapacity,
+    CapacityMode? capacityMode,
+    AssemblyVenueReviewStatus? assemblyVenueReviewStatus,
+    String? authorityNote,
     bool? requiresToiletTrailer,
     bool? requiresFirstAid,
-    bool? requiresSecurity,
     bool? requiresBarriers,
     bool? requiresStage,
     bool? requiresTechnicalSetup,
     bool? hasCateringRestriction,
+    String? securityReviewNote,
     String? infrastructureNote,
     String? parkingNote,
     String? accessNote,
     List<LocationGemaProfile>? gemaProfiles,
+    List<LocationSetup>? setups,
   }) {
     return LocationModel(
       id: id ?? this.id,
@@ -115,24 +111,25 @@ class LocationModel {
       standingCapacity: standingCapacity ?? this.standingCapacity,
       seatingCapacity: seatingCapacity ?? this.seatingCapacity,
       mixedCapacityNote: mixedCapacityNote ?? this.mixedCapacityNote,
-      baseRent: baseRent ?? this.baseRent,
-      revenueSharePercent: revenueSharePercent ?? this.revenueSharePercent,
-      minimumRent: minimumRent ?? this.minimumRent,
-      deposit: deposit ?? this.deposit,
-      cleaningFee: cleaningFee ?? this.cleaningFee,
-      utilityFee: utilityFee ?? this.utilityFee,
-      variableCostNote: variableCostNote ?? this.variableCostNote,
+      allowedCapacity: allowedCapacity ?? this.allowedCapacity,
+      capacityMode: capacityMode ?? this.capacityMode,
+      assemblyVenueReviewStatus:
+          assemblyVenueReviewStatus ?? this.assemblyVenueReviewStatus,
+      authorityNote: authorityNote ?? this.authorityNote,
       requiresToiletTrailer: requiresToiletTrailer ?? this.requiresToiletTrailer,
       requiresFirstAid: requiresFirstAid ?? this.requiresFirstAid,
-      requiresSecurity: requiresSecurity ?? this.requiresSecurity,
       requiresBarriers: requiresBarriers ?? this.requiresBarriers,
       requiresStage: requiresStage ?? this.requiresStage,
-      requiresTechnicalSetup: requiresTechnicalSetup ?? this.requiresTechnicalSetup,
-      hasCateringRestriction: hasCateringRestriction ?? this.hasCateringRestriction,
+      requiresTechnicalSetup:
+          requiresTechnicalSetup ?? this.requiresTechnicalSetup,
+      hasCateringRestriction:
+          hasCateringRestriction ?? this.hasCateringRestriction,
+      securityReviewNote: securityReviewNote ?? this.securityReviewNote,
       infrastructureNote: infrastructureNote ?? this.infrastructureNote,
       parkingNote: parkingNote ?? this.parkingNote,
       accessNote: accessNote ?? this.accessNote,
       gemaProfiles: gemaProfiles ?? this.gemaProfiles,
+      setups: setups ?? this.setups,
     );
   }
 

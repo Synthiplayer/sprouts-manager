@@ -1,9 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
 
 import '../../application/location_list_notifier.dart';
+import '../../domain/location_enums.dart';
 import '../../domain/location_gema_profile.dart';
 import '../../domain/location_model.dart';
+import '../../domain/location_setup.dart';
 
 class LocationManagementScreen extends ConsumerWidget {
   const LocationManagementScreen({super.key});
@@ -32,8 +35,6 @@ class LocationManagementScreen extends ConsumerWidget {
         itemCount: locations.length,
         itemBuilder: (context, index) {
           final location = locations[index];
-          final gemaEventAreas = location.eventRelevantGemaProfiles;
-
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             child: Padding(
@@ -70,27 +71,29 @@ class LocationManagementScreen extends ConsumerWidget {
                     ],
                   ),
                   Text('${location.zipCode} ${location.city}'),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Stehplätze: ${location.standingCapacity} | Sitzplätze: ${location.seatingCapacity}',
-                  ),
-                  Text('Grundmiete: ${location.baseRent.toStringAsFixed(2)} EVC'),
-                  Text('Umsatzbeteiligung: ${location.revenueSharePercent.toStringAsFixed(1)} %'),
+                  if (location.standingCapacity > 0) Text('Max. stehend: ${location.standingCapacity}'),
+                  if (location.seatingCapacity > 0) Text('Max. sitzend: ${location.seatingCapacity}'),
+                  if (location.eventRelevantGemaProfiles.isNotEmpty)
+                    Text(
+                      'GEMA: ${location.eventRelevantGemaProfiles.map((e) => e.areaName).join(', ')}',
+                    )
+                  else
+                    const Text('GEMA: Keine eventrelevanten Bereiche'),
                   const SizedBox(height: 6),
-                  Text(
-                    gemaEventAreas.isNotEmpty
-                        ? 'GEMA: ${gemaEventAreas.map((e) => e.areaName).join(', ')}'
-                        : 'GEMA: Keine eventrelevanten Bereiche',
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _buildRequirementChips(location),
-                  ),
-                  if (location.description.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(location.description),
+                  if (location.setups.isEmpty)
+                    const Text('Setups: Keine hinterlegt')
+                  else ...[
+                    const Text('Setups:'),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: location.setups.map((setup) => Chip(label: Text(setup.name))).toList(),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Standardmiete (erstes Setup): ${formatEuro(location.setups.first.defaultBaseRent)}',
+                    ),
                   ],
                 ],
               ),
@@ -99,30 +102,6 @@ class LocationManagementScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  List<Widget> _buildRequirementChips(LocationModel location) {
-    final chips = <Widget>[];
-
-    void addChip(bool visible, String label) {
-      if (visible) {
-        chips.add(Chip(label: Text(label)));
-      }
-    }
-
-    addChip(location.requiresToiletTrailer, 'Toilettenwagen');
-    addChip(location.requiresFirstAid, 'Erste Hilfe');
-    addChip(location.requiresSecurity, 'Security');
-    addChip(location.requiresBarriers, 'Absperrgitter');
-    addChip(location.requiresStage, 'Bühne');
-    addChip(location.requiresTechnicalSetup, 'Technik-Setup');
-    addChip(location.hasCateringRestriction, 'Catering-Einschränkung');
-
-    if (chips.isEmpty) {
-      chips.add(const Chip(label: Text('Keine besonderen Anforderungen')));
-    }
-
-    return chips;
   }
 }
 
@@ -141,77 +120,60 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
   late final TextEditingController _zipController;
   late final TextEditingController _cityController;
   late final TextEditingController _descriptionController;
-
   late final TextEditingController _standingController;
   late final TextEditingController _seatingController;
   late final TextEditingController _mixedNoteController;
-
-  late final TextEditingController _baseRentController;
-  late final TextEditingController _revenueShareController;
-  late final TextEditingController _minimumRentController;
-  late final TextEditingController _depositController;
-  late final TextEditingController _cleaningFeeController;
-  late final TextEditingController _utilityFeeController;
-  late final TextEditingController _variableCostNoteController;
-
+  late final TextEditingController _authorityNoteController;
   late final TextEditingController _infrastructureNoteController;
   late final TextEditingController _parkingNoteController;
   late final TextEditingController _accessNoteController;
+  late final TextEditingController _securityReviewNoteController;
 
   bool _isIndoor = true;
   bool _isOutdoor = false;
   bool _isAccessible = false;
-
   bool _requiresToiletTrailer = false;
   bool _requiresFirstAid = false;
-  bool _requiresSecurity = false;
   bool _requiresBarriers = false;
   bool _requiresStage = false;
   bool _requiresTechnicalSetup = false;
   bool _hasCateringRestriction = false;
 
+  AssemblyVenueReviewStatus _assemblyStatus = AssemblyVenueReviewStatus.unclear;
   late List<LocationGemaProfile> _gemaProfiles;
+  late List<LocationSetup> _setups;
 
   @override
   void initState() {
     super.initState();
     final current = widget.existing;
-
     _nameController = TextEditingController(text: current?.name ?? '');
     _streetController = TextEditingController(text: current?.street ?? '');
     _zipController = TextEditingController(text: current?.zipCode ?? '');
     _cityController = TextEditingController(text: current?.city ?? '');
     _descriptionController = TextEditingController(text: current?.description ?? '');
-
     _standingController = TextEditingController(text: '${current?.standingCapacity ?? 0}');
     _seatingController = TextEditingController(text: '${current?.seatingCapacity ?? 0}');
     _mixedNoteController = TextEditingController(text: current?.mixedCapacityNote ?? '');
-
-    _baseRentController = TextEditingController(text: '${current?.baseRent ?? 0}');
-    _revenueShareController = TextEditingController(text: '${current?.revenueSharePercent ?? 0}');
-    _minimumRentController = TextEditingController(text: '${current?.minimumRent ?? 0}');
-    _depositController = TextEditingController(text: '${current?.deposit ?? 0}');
-    _cleaningFeeController = TextEditingController(text: '${current?.cleaningFee ?? 0}');
-    _utilityFeeController = TextEditingController(text: '${current?.utilityFee ?? 0}');
-    _variableCostNoteController = TextEditingController(text: current?.variableCostNote ?? '');
-
+    _authorityNoteController = TextEditingController(text: current?.authorityNote ?? '');
     _infrastructureNoteController = TextEditingController(text: current?.infrastructureNote ?? '');
     _parkingNoteController = TextEditingController(text: current?.parkingNote ?? '');
     _accessNoteController = TextEditingController(text: current?.accessNote ?? '');
-
+    _securityReviewNoteController = TextEditingController(
+      text: current?.securityReviewNote ?? 'Securitybedarf je Event prüfen.',
+    );
     _isIndoor = current?.isIndoor ?? true;
     _isOutdoor = current?.isOutdoor ?? false;
     _isAccessible = current?.isAccessible ?? false;
-
     _requiresToiletTrailer = current?.requiresToiletTrailer ?? false;
     _requiresFirstAid = current?.requiresFirstAid ?? false;
-    _requiresSecurity = current?.requiresSecurity ?? false;
     _requiresBarriers = current?.requiresBarriers ?? false;
     _requiresStage = current?.requiresStage ?? false;
     _requiresTechnicalSetup = current?.requiresTechnicalSetup ?? false;
     _hasCateringRestriction = current?.hasCateringRestriction ?? false;
-
+    _assemblyStatus = current?.assemblyVenueReviewStatus ?? AssemblyVenueReviewStatus.unclear;
     _gemaProfiles = [...(current?.gemaProfiles ?? const [])];
+    _setups = [...(current?.setups ?? const [])];
   }
 
   @override
@@ -224,16 +186,11 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
     _standingController.dispose();
     _seatingController.dispose();
     _mixedNoteController.dispose();
-    _baseRentController.dispose();
-    _revenueShareController.dispose();
-    _minimumRentController.dispose();
-    _depositController.dispose();
-    _cleaningFeeController.dispose();
-    _utilityFeeController.dispose();
-    _variableCostNoteController.dispose();
+    _authorityNoteController.dispose();
     _infrastructureNoteController.dispose();
     _parkingNoteController.dispose();
     _accessNoteController.dispose();
+    _securityReviewNoteController.dispose();
     super.dispose();
   }
 
@@ -242,79 +199,108 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
     return AlertDialog(
       title: Text(widget.existing == null ? 'Location hinzufügen' : 'Location bearbeiten'),
       content: SizedBox(
-        width: 720,
+        width: 760,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSectionTitle('Basisdaten'),
-              _textField(_nameController, 'Name'),
-              _textField(_streetController, 'Straße'),
+              _section('Basisdaten'),
+              _text(_nameController, 'Name'),
+              _text(_streetController, 'Straße'),
               Row(
                 children: [
-                  Expanded(child: _textField(_zipController, 'PLZ')),
+                  Expanded(child: _text(_zipController, 'PLZ')),
                   const SizedBox(width: 8),
-                  Expanded(child: _textField(_cityController, 'Stadt')),
+                  Expanded(child: _text(_cityController, 'Stadt')),
                 ],
               ),
-              _textField(_descriptionController, 'Beschreibung'),
-              SwitchListTile(
-                value: _isIndoor,
-                title: const Text('Indoor'),
-                onChanged: (value) => setState(() => _isIndoor = value),
-              ),
-              SwitchListTile(
-                value: _isOutdoor,
-                title: const Text('Outdoor'),
-                onChanged: (value) => setState(() => _isOutdoor = value),
-              ),
-              SwitchListTile(
-                value: _isAccessible,
-                title: const Text('Barrierefrei'),
-                onChanged: (value) => setState(() => _isAccessible = value),
-              ),
-
-              _buildSectionTitle('Kapazität'),
+              _text(_descriptionController, 'Beschreibung'),
+              _switch('Indoor', _isIndoor, (v) => setState(() => _isIndoor = v)),
+              _switch('Outdoor', _isOutdoor, (v) => setState(() => _isOutdoor = v)),
+              _switch('Barrierefrei', _isAccessible, (v) => setState(() => _isAccessible = v)),
+              _section('Kapazität'),
               Row(
                 children: [
-                  Expanded(child: _textField(_standingController, 'Stehplätze', isNumber: true)),
+                  Expanded(child: _text(_standingController, 'Max. Stehplätze', isNumber: true)),
                   const SizedBox(width: 8),
-                  Expanded(child: _textField(_seatingController, 'Sitzplätze', isNumber: true)),
+                  Expanded(child: _text(_seatingController, 'Max. Sitzplätze', isNumber: true)),
                 ],
               ),
-              _textField(_mixedNoteController, 'Mischkapazität Hinweis'),
 
-              _buildSectionTitle('Kostenmodell'),
-              _textField(_baseRentController, 'Grundmiete', isNumber: true),
-              _textField(_revenueShareController, 'Umsatzbeteiligung (%)', isNumber: true),
-              _textField(_minimumRentController, 'Mindestmiete', isNumber: true),
-              _textField(_depositController, 'Kaution', isNumber: true),
-              _textField(_cleaningFeeController, 'Reinigungsgebühr', isNumber: true),
-              _textField(_utilityFeeController, 'Nebenkosten', isNumber: true),
-              _textField(_variableCostNoteController, 'Variable Kosten Hinweis'),
-
-              _buildSectionTitle('Zusatzanforderungen'),
-              _switch('Toilettenwagen erforderlich', _requiresToiletTrailer,
-                  (v) => setState(() => _requiresToiletTrailer = v)),
-              _switch('Erste Hilfe erforderlich', _requiresFirstAid,
-                  (v) => setState(() => _requiresFirstAid = v)),
-              _switch('Security erforderlich', _requiresSecurity,
-                  (v) => setState(() => _requiresSecurity = v)),
-              _switch('Absperrgitter erforderlich', _requiresBarriers,
-                  (v) => setState(() => _requiresBarriers = v)),
-              _switch('Bühne erforderlich', _requiresStage,
-                  (v) => setState(() => _requiresStage = v)),
-              _switch('Technik-Setup erforderlich', _requiresTechnicalSetup,
-                  (v) => setState(() => _requiresTechnicalSetup = v)),
-              _switch('Catering-Einschränkung', _hasCateringRestriction,
-                  (v) => setState(() => _hasCateringRestriction = v)),
-
-              _buildSectionTitle('Hinweise'),
-              _textField(_infrastructureNoteController, 'Infrastruktur Hinweis'),
-              _textField(_parkingNoteController, 'Parken Hinweis'),
-              _textField(_accessNoteController, 'Zugang Hinweis'),
-
-              _buildSectionTitle('GEMA-Profile'),
+              _text(_mixedNoteController, 'Kapazitäts-/Bestuhlungshinweis'),
+              _section('Prüf-/Behördennotizen'),
+              DropdownButtonFormField<AssemblyVenueReviewStatus>(
+                initialValue: _assemblyStatus,
+                decoration: const InputDecoration(
+                  labelText: 'Versammlungsstätten-Status',
+                  border: OutlineInputBorder(),
+                ),
+                items: AssemblyVenueReviewStatus.values
+                    .map((value) => DropdownMenuItem(value: value, child: Text(_assemblyLabel(value))))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _assemblyStatus = value);
+                },
+              ),
+              const SizedBox(height: 8),
+              _text(_authorityNoteController, 'Behördenhinweis'),
+              _section('Setups'),
+              ..._setups.asMap().entries.map((entry) {
+                final setup = entry.value;
+                final setupIndex = entry.key;
+                final gemaLabel = _gemaProfileNameById(setup.defaultGemaProfileId);
+                return Card(
+                  child: ListTile(
+                    title: Text(setup.name),
+                    subtitle: Text(
+                      '${_setupTypeLabel(setup.setupType)} | Kapazität: ${setup.capacity} | '
+                      'Standardmiete: ${formatEuro(setup.defaultBaseRent)} | '
+                      'GEMA: $gemaLabel (${_gemaEventTypeLabel(setup.defaultGemaEventType)})',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () async {
+                            final updated = await _showSetupDialog(existing: setup);
+                            if (updated != null) {
+                              setState(() => _setups[setupIndex] = updated);
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => setState(() => _setups.removeAt(setupIndex)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              TextButton.icon(
+                onPressed: () async {
+                  final created = await _showSetupDialog();
+                  if (created != null) {
+                    setState(() => _setups.add(created));
+                  }
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Setup hinzufügen'),
+              ),
+              _section('Zusatzanforderungen'),
+              _switch('Toilettenwagen erforderlich', _requiresToiletTrailer, (v) => setState(() => _requiresToiletTrailer = v)),
+              _switch('Erste Hilfe erforderlich', _requiresFirstAid, (v) => setState(() => _requiresFirstAid = v)),
+              _switch('Absperrgitter erforderlich', _requiresBarriers, (v) => setState(() => _requiresBarriers = v)),
+              _switch('Bühne erforderlich', _requiresStage, (v) => setState(() => _requiresStage = v)),
+              _switch('Technik-Setup erforderlich', _requiresTechnicalSetup, (v) => setState(() => _requiresTechnicalSetup = v)),
+              _switch('Catering-Einschränkung', _hasCateringRestriction, (v) => setState(() => _hasCateringRestriction = v)),
+              _text(_securityReviewNoteController, 'Security-Hinweis (eventbezogen prüfen)'),
+              _section('Hinweise'),
+              _text(_infrastructureNoteController, 'Infrastruktur Hinweis'),
+              _text(_parkingNoteController, 'Parken Hinweis'),
+              _text(_accessNoteController, 'Zugang Hinweis'),
+              _section('GEMA-Profile'),
               ..._gemaProfiles.asMap().entries.map((entry) {
                 final index = entry.key;
                 final profile = entry.value;
@@ -323,7 +309,9 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
                     title: Text(profile.areaName),
                     subtitle: Text(
                       profile.isEventArea
-                          ? 'Eventbereich, Personen: ${profile.allowedPersons}, Konzert: ${profile.concertFee}'
+                          ? 'Eventbereich, Konzert: ${formatEuro(profile.concertFee)}, '
+                              'Party: ${formatEuro(profile.partyFee)}, '
+                              'Geschl. Gesellschaft: ${formatEuro(profile.privateEventFee)}'
                           : 'Nicht eventrelevant',
                     ),
                     trailing: Row(
@@ -332,7 +320,7 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
                         IconButton(
                           icon: const Icon(Icons.edit),
                           onPressed: () async {
-                            final updated = await _showGemaProfileDialog(existing: profile);
+                            final updated = await _showGemaDialog(existing: profile);
                             if (updated != null) {
                               setState(() => _gemaProfiles[index] = updated);
                             }
@@ -340,72 +328,61 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            setState(() => _gemaProfiles.removeAt(index));
-                          },
+                          onPressed: () => setState(() => _gemaProfiles.removeAt(index)),
                         ),
                       ],
                     ),
                   ),
                 );
               }),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () async {
-                    final created = await _showGemaProfileDialog();
-                    if (created != null) {
-                      setState(() => _gemaProfiles.add(created));
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('GEMA-Bereich hinzufügen'),
-                ),
+              TextButton.icon(
+                onPressed: () async {
+                  final created = await _showGemaDialog();
+                  if (created != null) {
+                    setState(() => _gemaProfiles.add(created));
+                  }
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('GEMA-Bereich hinzufügen'),
               ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Abbrechen'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Abbrechen')),
         FilledButton(
           onPressed: () {
-            final model = LocationModel(
-              id: widget.existing?.id ?? 'loc_${DateTime.now().millisecondsSinceEpoch}',
-              name: _nameController.text.trim(),
-              street: _streetController.text.trim(),
-              zipCode: _zipController.text.trim(),
-              city: _cityController.text.trim(),
-              description: _descriptionController.text.trim(),
-              isIndoor: _isIndoor,
-              isOutdoor: _isOutdoor,
-              isAccessible: _isAccessible,
-              standingCapacity: int.tryParse(_standingController.text) ?? 0,
-              seatingCapacity: int.tryParse(_seatingController.text) ?? 0,
-              mixedCapacityNote: _mixedNoteController.text.trim(),
-              baseRent: _toDouble(_baseRentController.text),
-              revenueSharePercent: _toDouble(_revenueShareController.text),
-              minimumRent: _toDouble(_minimumRentController.text),
-              deposit: _toDouble(_depositController.text),
-              cleaningFee: _toDouble(_cleaningFeeController.text),
-              utilityFee: _toDouble(_utilityFeeController.text),
-              variableCostNote: _variableCostNoteController.text.trim(),
-              requiresToiletTrailer: _requiresToiletTrailer,
-              requiresFirstAid: _requiresFirstAid,
-              requiresSecurity: _requiresSecurity,
-              requiresBarriers: _requiresBarriers,
-              requiresStage: _requiresStage,
-              requiresTechnicalSetup: _requiresTechnicalSetup,
-              hasCateringRestriction: _hasCateringRestriction,
-              infrastructureNote: _infrastructureNoteController.text.trim(),
-              parkingNote: _parkingNoteController.text.trim(),
-              accessNote: _accessNoteController.text.trim(),
-              gemaProfiles: _gemaProfiles,
+            Navigator.of(context).pop(
+              LocationModel(
+                id: widget.existing?.id ?? 'loc_${DateTime.now().millisecondsSinceEpoch}',
+                name: _nameController.text.trim(),
+                street: _streetController.text.trim(),
+                zipCode: _zipController.text.trim(),
+                city: _cityController.text.trim(),
+                description: _descriptionController.text.trim(),
+                isIndoor: _isIndoor,
+                isOutdoor: _isOutdoor,
+                isAccessible: _isAccessible,
+                standingCapacity: int.tryParse(_standingController.text) ?? 0,
+                seatingCapacity: int.tryParse(_seatingController.text) ?? 0,
+                mixedCapacityNote: _mixedNoteController.text.trim(),
+                assemblyVenueReviewStatus: _assemblyStatus,
+                authorityNote: _authorityNoteController.text.trim(),
+                requiresToiletTrailer: _requiresToiletTrailer,
+                requiresFirstAid: _requiresFirstAid,
+                requiresBarriers: _requiresBarriers,
+                requiresStage: _requiresStage,
+                requiresTechnicalSetup: _requiresTechnicalSetup,
+                hasCateringRestriction: _hasCateringRestriction,
+                securityReviewNote: _securityReviewNoteController.text.trim(),
+                infrastructureNote: _infrastructureNoteController.text.trim(),
+                parkingNote: _parkingNoteController.text.trim(),
+                accessNote: _accessNoteController.text.trim(),
+                gemaProfiles: _gemaProfiles,
+                setups: _setups,
+              ),
             );
-            Navigator.of(context).pop(model);
           },
           child: const Text('Speichern'),
         ),
@@ -413,60 +390,98 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
     );
   }
 
-  Future<LocationGemaProfile?> _showGemaProfileDialog({LocationGemaProfile? existing}) {
-    final areaController = TextEditingController(text: existing?.areaName ?? '');
-    final allowedController = TextEditingController(text: '${existing?.allowedPersons ?? 0}');
-    final sizeController = TextEditingController(text: '${existing?.areaSizeSqm ?? 0}');
-    final concertController = TextEditingController(text: '${existing?.concertFee ?? 0}');
-    final partyController = TextEditingController(text: '${existing?.partyFee ?? 0}');
-    final privateController = TextEditingController(text: '${existing?.privateEventFee ?? 0}');
-    final notesController = TextEditingController(text: existing?.notes ?? '');
-    bool isEventArea = existing?.isEventArea ?? true;
+  Future<LocationSetup?> _showSetupDialog({LocationSetup? existing}) {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final capacityController = TextEditingController(text: '${existing?.capacity ?? 0}');
+    final rentController = TextEditingController(text: _formatEuroInput(existing?.defaultBaseRent ?? 0));
+    final securityController = TextEditingController(text: existing?.securityNote ?? '');
+    final technicalController = TextEditingController(text: existing?.technicalNote ?? '');
+    final seatingController = TextEditingController(text: existing?.seatingNote ?? '');
+    final costController = TextEditingController(text: existing?.costNote ?? '');
+    final generalController = TextEditingController(text: existing?.generalNote ?? '');
+    var setupType = existing?.setupType ?? LocationSetupType.custom;
+    var gemaType = existing?.defaultGemaEventType ?? GemaEventType.none;
+    String? gemaProfileId = existing?.defaultGemaProfileId;
+    if (_gemaProfiles.isNotEmpty) {
+      gemaProfileId ??= _gemaProfiles.first.id;
+    }
 
-    return showDialog<LocationGemaProfile>(
+    return showDialog<LocationSetup>(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setLocalState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text(existing == null ? 'GEMA-Bereich hinzufügen' : 'GEMA-Bereich bearbeiten'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _textField(areaController, 'Bereichsname'),
-                    SwitchListTile(
-                      value: isEventArea,
-                      title: const Text('Für Veranstaltungsgäste relevant'),
-                      onChanged: (value) => setLocalState(() => isEventArea = value),
-                    ),
-                    _textField(allowedController, 'Zugelassene Personen', isNumber: true),
-                    _textField(sizeController, 'Fläche (qm)', isNumber: true),
-                    _textField(concertController, 'Konzert-Gebühr', isNumber: true),
-                    _textField(partyController, 'Party-Gebühr', isNumber: true),
-                    _textField(privateController, 'Gebühr geschl. Gesellschaft', isNumber: true),
-                    _textField(notesController, 'Hinweis'),
-                  ],
+              title: Text(existing == null ? 'Setup hinzufügen' : 'Setup bearbeiten'),
+              content: SizedBox(
+                width: 620,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _text(nameController, 'Name'),
+                      DropdownButtonFormField<LocationSetupType>(
+                        initialValue: setupType,
+                        decoration: const InputDecoration(labelText: 'Setup-Typ', border: OutlineInputBorder()),
+                        items: LocationSetupType.values
+                            .map((value) => DropdownMenuItem(value: value, child: Text(_setupTypeLabel(value))))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) setDialogState(() => setupType = value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      _text(capacityController, 'Kapazität', isNumber: true),
+                      _text(rentController, 'Standard-Grundmiete', isNumber: true, suffixText: 'EUR'),
+                      DropdownButtonFormField<String>(
+                        initialValue: gemaProfileId,
+                        decoration: const InputDecoration(labelText: 'Standard-GEMA-Profil', border: OutlineInputBorder()),
+                        items: _gemaProfiles
+                            .map((value) => DropdownMenuItem(value: value.id, child: Text(value.areaName)))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) setDialogState(() => gemaProfileId = value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<GemaEventType>(
+                        initialValue: gemaType,
+                        decoration: const InputDecoration(labelText: 'Standard-GEMA-Art', border: OutlineInputBorder()),
+                        items: GemaEventType.values
+                            .map((value) => DropdownMenuItem(value: value, child: Text(_gemaEventTypeLabel(value))))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) setDialogState(() => gemaType = value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      _text(securityController, 'Security-Hinweis'),
+                      _text(technicalController, 'Technik-Hinweis'),
+                      _text(seatingController, 'Bestuhlungs-Hinweis'),
+                      _text(costController, 'Kosten-Hinweis'),
+                      _text(generalController, 'Allgemeiner Hinweis'),
+                    ],
+                  ),
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Abbrechen'),
-                ),
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Abbrechen')),
                 FilledButton(
                   onPressed: () {
                     Navigator.of(context).pop(
-                      LocationGemaProfile(
-                        id: existing?.id ?? 'gema_${DateTime.now().millisecondsSinceEpoch}',
-                        areaName: areaController.text.trim(),
-                        isEventArea: isEventArea,
-                        allowedPersons: int.tryParse(allowedController.text) ?? 0,
-                        areaSizeSqm: _toDouble(sizeController.text),
-                        concertFee: _toDouble(concertController.text),
-                        partyFee: _toDouble(partyController.text),
-                        privateEventFee: _toDouble(privateController.text),
-                        notes: notesController.text.trim(),
+                      LocationSetup(
+                        id: existing?.id ?? 'setup_${DateTime.now().millisecondsSinceEpoch}',
+                        name: nameController.text.trim(),
+                        setupType: setupType,
+                        capacity: int.tryParse(capacityController.text) ?? 0,
+                        defaultBaseRent: parseEuroInput(rentController.text),
+                        defaultGemaProfileId: gemaProfileId ?? '',
+                        defaultGemaEventType: gemaType,
+                        securityNote: securityController.text.trim(),
+                        technicalNote: technicalController.text.trim(),
+                        seatingNote: seatingController.text.trim(),
+                        costNote: costController.text.trim(),
+                        generalNote: generalController.text.trim(),
                       ),
                     );
                   },
@@ -480,41 +495,153 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
     );
   }
 
-  Widget _textField(TextEditingController controller, String label, {bool isNumber = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: TextField(
-        controller: controller,
-        keyboardType: isNumber
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
+  Future<LocationGemaProfile?> _showGemaDialog({LocationGemaProfile? existing}) {
+    final areaController = TextEditingController(text: existing?.areaName ?? '');
+    final allowedController = TextEditingController(text: '${existing?.allowedPersons ?? 0}');
+    final sizeController = TextEditingController(text: '${existing?.areaSizeSqm ?? 0}');
+    final concertController = TextEditingController(text: _formatEuroInput(existing?.concertFee ?? 0));
+    final partyController = TextEditingController(text: _formatEuroInput(existing?.partyFee ?? 0));
+    final privateController = TextEditingController(text: _formatEuroInput(existing?.privateEventFee ?? 0));
+    final notesController = TextEditingController(text: existing?.notes ?? '');
+    var isEventArea = existing?.isEventArea ?? true;
+
+    return showDialog<LocationGemaProfile>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(existing == null ? 'GEMA-Bereich hinzufügen' : 'GEMA-Bereich bearbeiten'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _text(areaController, 'Bereichsname'),
+                SwitchListTile(
+                  value: isEventArea,
+                  title: const Text('Für Veranstaltungsgäste relevant'),
+                  onChanged: (value) => setDialogState(() => isEventArea = value),
+                ),
+                _text(allowedController, 'Zugelassene Personen', isNumber: true),
+                _text(sizeController, 'Fläche (qm)', isNumber: true),
+                _text(concertController, 'Konzert-Gebühr', isNumber: true, suffixText: 'EUR'),
+                _text(partyController, 'Party-Gebühr', isNumber: true, suffixText: 'EUR'),
+                _text(privateController, 'Gebühr geschl. Gesellschaft', isNumber: true, suffixText: 'EUR'),
+                _text(notesController, 'Hinweis'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Abbrechen')),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop(
+                  LocationGemaProfile(
+                    id: existing?.id ?? 'gema_${DateTime.now().millisecondsSinceEpoch}',
+                    areaName: areaController.text.trim(),
+                    isEventArea: isEventArea,
+                    allowedPersons: int.tryParse(allowedController.text) ?? 0,
+                    areaSizeSqm: parseEuroInput(sizeController.text),
+                    concertFee: parseEuroInput(concertController.text),
+                    partyFee: parseEuroInput(partyController.text),
+                    privateEventFee: parseEuroInput(privateController.text),
+                    notes: notesController.text.trim(),
+                  ),
+                );
+              },
+              child: const Text('Übernehmen'),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _switch(String label, bool value, ValueChanged<bool> onChanged) {
-    return SwitchListTile(
-      value: value,
-      title: Text(label),
-      onChanged: onChanged,
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
+  Widget _text(TextEditingController controller, String label, {bool isNumber = false, String? suffixText}) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: TextField(
+        controller: controller,
+        keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+        decoration: InputDecoration(labelText: label, suffixText: suffixText, border: const OutlineInputBorder()),
       ),
     );
   }
 
-  double _toDouble(String raw) {
-    return double.tryParse(raw.replaceAll(',', '.')) ?? 0;
+  Widget _switch(String label, bool value, ValueChanged<bool> onChanged) {
+    return SwitchListTile(value: value, title: Text(label), onChanged: onChanged);
+  }
+
+  Widget _section(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+    );
+  }
+  }
+
+  String _assemblyLabel(AssemblyVenueReviewStatus status) {
+    switch (status) {
+      case AssemblyVenueReviewStatus.notRelevant:
+        return 'Nicht relevant';
+      case AssemblyVenueReviewStatus.approvedBelowThreshold:
+        return 'Genehmigt unter Schwelle';
+      case AssemblyVenueReviewStatus.approvedAsAssemblyVenue:
+        return 'Als Versammlungsstätte genehmigt';
+      case AssemblyVenueReviewStatus.needsReview:
+        return 'Prüfung erforderlich';
+      case AssemblyVenueReviewStatus.unclear:
+        return 'Unklar';
+    }
+  }
+
+  String _setupTypeLabel(LocationSetupType type) {
+    switch (type) {
+      case LocationSetupType.standingParty:
+        return 'Stehparty';
+      case LocationSetupType.seatedConcert:
+        return 'Konzert bestuhlt';
+      case LocationSetupType.standingConcert:
+        return 'Konzert stehend';
+      case LocationSetupType.movieNight:
+        return 'Filmabend';
+      case LocationSetupType.dinner:
+        return 'Dinnerparty';
+      case LocationSetupType.publicViewing:
+        return 'Public Viewing';
+      case LocationSetupType.privateEvent:
+        return 'Geschlossene Gesellschaft';
+      case LocationSetupType.seminar:
+        return 'Seminar';
+      case LocationSetupType.custom:
+        return 'Individuell';
+    }
+  }
+
+  String _gemaEventTypeLabel(GemaEventType type) {
+    switch (type) {
+      case GemaEventType.concert:
+        return 'Konzert';
+      case GemaEventType.party:
+        return 'Party';
+      case GemaEventType.privateEvent:
+        return 'Geschlossene Gesellschaft';
+      case GemaEventType.none:
+        return 'Keine';
+      case GemaEventType.custom:
+        return 'Sonderfall';
+    }
+  }
+
+  String _gemaProfileNameById(String id) {
+    for (final profile in _gemaProfiles) {
+      if (profile.id == id) return profile.areaName;
+    }
+    return 'Nicht gesetzt';
+  }
+
+  String _formatEuroInput(double value) {
+    return formatEuro(value).replaceAll(' EUR', '');
   }
 }
+
+
+
