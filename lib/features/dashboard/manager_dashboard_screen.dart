@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:sprouts_manager/features/event_calculation/presentation/screens/event_calculation_screen.dart';
 import 'package:sprouts_manager/features/events/event_management_page.dart';
-import 'package:sprouts_manager/pages/location_management_page.dart';
+import 'package:sprouts_manager/features/locations/presentation/screens/location_management_screen.dart';
 import 'package:sprouts_manager/pages/statistics_page.dart';
 import 'package:sprouts_manager/pages/user_management_page.dart';
 
@@ -19,7 +20,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
     final pages = <Widget>[
       const EventManagementPage(),
       const UserManagementPage(),
-      const _EventCalculationPlaceholder(),
+      const EventCalculationScreen(),
       const LocationManagementPage(),
       const StatisticsPage(),
     ];
@@ -73,19 +74,3 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
   }
 }
 
-class _EventCalculationPlaceholder extends StatelessWidget {
-  const _EventCalculationPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          'Eventkalkulation wird als Kernfeature im nächsten Umbauschritt aufgebaut.',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-}

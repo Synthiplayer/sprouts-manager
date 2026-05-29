@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:sprouts_manager/features/events/event_management_page.dart';
 import 'package:sprouts_manager/pages/user_management_page.dart'; // Beispiel fÃ¼r Dummy-Seiten
-import 'package:sprouts_manager/pages/location_management_page.dart';
+import 'package:sprouts_manager/features/locations/presentation/screens/location_management_screen.dart';
 import 'package:sprouts_manager/pages/statistics_page.dart'; // Dummy-Statistikseite
 
 class BottomNavigation extends StatefulWidget {
@@ -18,7 +18,7 @@ class _BottomNavigationState extends State<BottomNavigation> {
   static const List<Widget> _pages = <Widget>[
     EventManagementPage(),
     UserManagementPage(), // Dummy-Seite fÃ¼r Benutzerverwaltung
-    LocationManagementPage(), // Dummy-Seite fÃ¼r Location-Verwaltung
+    LocationManagementScreen(), // Dummy-Seite fÃ¼r Location-Verwaltung
     StatisticsPage(), // Dummy-Seite fÃ¼r Statistiken
   ];
 
@@ -59,4 +59,6 @@ class _BottomNavigationState extends State<BottomNavigation> {
     );
   }
 }
+
+
 
