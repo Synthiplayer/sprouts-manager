@@ -576,7 +576,6 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
       child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
     );
   }
-  }
 
   String _assemblyLabel(AssemblyVenueReviewStatus status) {
     switch (status) {
