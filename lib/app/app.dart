@@ -1,59 +1,49 @@
 ﻿import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sprouts_manager/core/app_config.dart';
 import 'package:sprouts_manager/core/responsive/app_breakpoints.dart';
 import 'package:sprouts_manager/features/auth/presentation/screens/start_mode_screen.dart';
 import 'package:sprouts_manager/features/dashboard/manager_dashboard_screen.dart';
 import 'package:sprouts_manager/firebase_options.dart';
-import 'package:sprouts_manager/utils/event_manager.dart';
-import 'package:sprouts_manager/utils/user_manager.dart';
+
+import 'state/app_state_providers.dart';
 
 class SproutsManagerApp extends StatelessWidget {
   const SproutsManagerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<EventManager>(
-          create: (_) => EventManager(),
-        ),
-        ChangeNotifierProvider<UserManager>(
-          create: (_) => UserManager(),
-        ),
-      ],
-      child: MaterialApp(
-        title: 'Eventsprouts Manager',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D3557)),
-          useMaterial3: true,
-        ),
-        home: const _AppBootstrap(),
+    return MaterialApp(
+      title: 'Eventsprouts Manager',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1D3557)),
+        useMaterial3: true,
       ),
+      home: const _AppBootstrap(),
     );
   }
 }
 
-class _AppBootstrap extends StatefulWidget {
+class _AppBootstrap extends ConsumerStatefulWidget {
   const _AppBootstrap();
 
   @override
-  State<_AppBootstrap> createState() => _AppBootstrapState();
+  ConsumerState<_AppBootstrap> createState() => _AppBootstrapState();
 }
 
-class _AppBootstrapState extends State<_AppBootstrap> {
+class _AppBootstrapState extends ConsumerState<_AppBootstrap> {
   late Future<void> _initFuture;
-  bool _didInitFuture = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture = _initializeAppData();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!_didInitFuture) {
-      _initFuture = _initializeAppData(context);
-      _didInitFuture = true;
-    }
-
-    return FutureBuilder(
+    return FutureBuilder<void>(
       future: _initFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -85,40 +75,22 @@ class _AppBootstrapState extends State<_AppBootstrap> {
     );
   }
 
-  Future<void> _initializeAppData(BuildContext context) async {
-    final eventManager = context.read<EventManager>();
-    final userManager = context.read<UserManager>();
-
-    // Defer data loading to the next event-loop tick so provider notifications
-    // are not fired while _AppBootstrap is still in its build phase.
+  Future<void> _initializeAppData() async {
     await Future<void>.delayed(Duration.zero);
 
-    if (!AppConfig.useFirebaseInDevelopment) {
-      eventManager.loadDummyEvents();
-      userManager.loadDummyUsers();
-      return;
+    if (AppConfig.useFirebaseInDevelopment) {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      } on UnsupportedError catch (error) {
+        debugPrint(
+          'Firebase is not configured for this platform. Running with local dummy data. $error',
+        );
+      }
     }
 
-    bool firebaseInitialized = false;
-
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      firebaseInitialized = true;
-    } on UnsupportedError catch (error) {
-      debugPrint(
-        'Firebase is not configured for this platform. Running with local dummy data. $error',
-      );
-    }
-
-    if (!firebaseInitialized) {
-      eventManager.loadDummyEvents();
-      userManager.loadDummyUsers();
-      return;
-    }
-
-    await eventManager.loadEventsFromFirestore();
-    await userManager.loadUsersFromFirestore();
+    await ref.read(eventListProvider.notifier).initialize();
+    await ref.read(userListProvider.notifier).initialize();
   }
 }

@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   firebase_core: ^4.9.0
   cloud_firestore: ^6.4.1
-  provider: ^6.1.5+1
+  flutter_riverpod: ^2.6.1
   google_fonts: ^8.1.0
   intl: ^0.20.2
   crypto: ^3.0.7
@@ -24,3 +24,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+

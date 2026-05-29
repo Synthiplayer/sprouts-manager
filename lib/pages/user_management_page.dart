@@ -1,22 +1,23 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../utils/user_manager.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class UserManagementPage extends StatelessWidget {
+import 'package:sprouts_manager/app/state/app_state_providers.dart';
+
+class UserManagementPage extends ConsumerWidget {
   const UserManagementPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final userManager = Provider.of<UserManager>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final users = ref.watch(userListProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Benutzerverwaltung'),
       ),
       body: ListView.builder(
-        itemCount: userManager.users.length,
+        itemCount: users.length,
         itemBuilder: (context, index) {
-          final user = userManager.users[index];
+          final user = users[index];
           return ListTile(
             title: Text('${user.vorname} ${user.nachname}'),
             subtitle: Text('E-Mail: ${user.email ?? 'Keine E-Mail'}'),
@@ -25,14 +26,12 @@ class UserManagementPage extends StatelessWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit),
-                  onPressed: () {
-                    // Hier könnte ein Bearbeitungsdialog geöffnet werden
-                  },
+                  onPressed: () {},
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete),
                   onPressed: () {
-                    userManager.deleteUser(user.id);
+                    ref.read(userListProvider.notifier).deleteUser(user.id);
                   },
                 ),
               ],
@@ -41,9 +40,7 @@ class UserManagementPage extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Hier kann ein Dialog zum Hinzufügen neuer Benutzer geöffnet werden
-        },
+        onPressed: () {},
         child: const Icon(Icons.add),
       ),
     );

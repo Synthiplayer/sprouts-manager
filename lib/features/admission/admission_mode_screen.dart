@@ -1,16 +1,16 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:sprouts_manager/app/state/app_state_providers.dart';
 import 'package:sprouts_manager/models/event.dart';
 import 'package:sprouts_manager/pages/check_in_page.dart';
-import 'package:sprouts_manager/utils/event_manager.dart';
 
-class AdmissionModeScreen extends StatelessWidget {
+class AdmissionModeScreen extends ConsumerWidget {
   const AdmissionModeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final events = context.watch<EventManager>().events;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final events = ref.watch(eventListProvider);
 
     final todayEvents = events.where(_isToday).toList();
     final upcomingEvents = events.where(_isUpcomingWithinSevenDays).toList();

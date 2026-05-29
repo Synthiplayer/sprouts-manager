@@ -4,34 +4,24 @@ import 'package:flutter/foundation.dart';
 import '../core/app_config.dart';
 import '../models/user.dart';
 
-class UserManager extends ChangeNotifier {
-  bool _hasLoadedDummyUsers = false;
-  List<BenutzerDaten> users = [];
-
+class UserManager {
   CollectionReference get userCollection =>
       FirebaseFirestore.instance.collection('users');
 
-  Future<void> loadUsersFromFirestore() async {
+  Future<List<BenutzerDaten>> loadUsersFromFirestore() async {
     try {
       final snapshot = await userCollection.get();
-      users = snapshot.docs
+      return snapshot.docs
           .map((doc) => BenutzerDaten.fromJson(doc.data() as Map<String, dynamic>))
           .toList();
-      _hasLoadedDummyUsers = true;
-    notifyListeners();
     } catch (e) {
       debugPrint('Fehler beim Laden der Benutzer: $e');
-      if (users.isEmpty) {
-        loadDummyUsers();
-      }
+      return [];
     }
   }
 
-  void loadDummyUsers() {
-    if (_hasLoadedDummyUsers && users.isNotEmpty) {
-      return;
-    }
-    users = [
+  List<BenutzerDaten> loadDummyUsers() {
+    return [
       BenutzerDaten(
         id: 'U1001',
         vorname: 'Max',
@@ -53,59 +43,29 @@ class UserManager extends ChangeNotifier {
         eventCoins: 80,
       ),
     ];
-    _hasLoadedDummyUsers = true;
-    notifyListeners();
   }
 
   Future<void> addUser(BenutzerDaten user) async {
-    users.add(user);
-    _hasLoadedDummyUsers = true;
-    notifyListeners();
-
     if (!AppConfig.useFirebaseInDevelopment) {
       return;
     }
 
-    try {
-      await userCollection.add(user.toJson());
-    } catch (e) {
-      debugPrint('Fehler beim Hinzufügen des Benutzers: $e');
-    }
+    await userCollection.add(user.toJson());
   }
 
   Future<void> deleteUser(String userId) async {
-    users.removeWhere((user) => user.id == userId);
-    _hasLoadedDummyUsers = true;
-    notifyListeners();
-
     if (!AppConfig.useFirebaseInDevelopment) {
       return;
     }
 
-    try {
-      await userCollection.doc(userId).delete();
-    } catch (e) {
-      debugPrint('Fehler beim Löschen des Benutzers: $e');
-    }
+    await userCollection.doc(userId).delete();
   }
 
   Future<void> updateUser(String userId, BenutzerDaten updatedUser) async {
-    final index = users.indexWhere((user) => user.id == userId);
-    if (index != -1) {
-      users[index] = updatedUser;
-      _hasLoadedDummyUsers = true;
-    notifyListeners();
-    }
-
     if (!AppConfig.useFirebaseInDevelopment) {
       return;
     }
 
-    try {
-      await userCollection.doc(userId).update(updatedUser.toJson());
-    } catch (e) {
-      debugPrint('Fehler beim Aktualisieren des Benutzers: $e');
-    }
+    await userCollection.doc(userId).update(updatedUser.toJson());
   }
 }
-

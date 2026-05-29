@@ -4,35 +4,24 @@ import 'package:flutter/material.dart';
 import '../core/app_config.dart';
 import '../models/event.dart';
 
-class EventManager extends ChangeNotifier {
-  bool _hasLoadedDummyEvents = false;
-  List<Event> _events = [];
-
-  List<Event> get events => _events;
-
-  Future<void> loadEventsFromFirestore() async {
+class EventManager {
+  Future<List<Event>> loadEventsFromFirestore() async {
     try {
       final snapshot = await FirebaseFirestore.instance.collection('events').get();
       if (snapshot.docs.isNotEmpty) {
-        _events = snapshot.docs.map((doc) => Event.fromJson(doc.data())).toList();
-        _hasLoadedDummyEvents = true;
-    notifyListeners();
-      } else {
-        debugPrint('Keine Events in Firestore gefunden');
+        return snapshot.docs.map((doc) => Event.fromJson(doc.data())).toList();
       }
+
+      debugPrint('Keine Events in Firestore gefunden');
+      return [];
     } catch (error) {
       debugPrint('Fehler beim Laden der Events aus Firestore: $error');
-      if (_events.isEmpty) {
-        loadDummyEvents();
-      }
+      return [];
     }
   }
 
-  void loadDummyEvents() {
-    if (_hasLoadedDummyEvents && _events.isNotEmpty) {
-      return;
-    }
-    _events = [
+  List<Event> loadDummyEvents() {
+    return [
       Event(
         eventId: 'demo_event_1',
         kategorie: 'Party',
@@ -74,42 +63,21 @@ class EventManager extends ChangeNotifier {
         eingecheckteListe: const ['U1004'],
       ),
     ];
-    _hasLoadedDummyEvents = true;
-    notifyListeners();
   }
 
-  void addOrUpdateEvent(Event event) {
-    final index = _events.indexWhere((e) => e.eventId == event.eventId);
-
-    if (index == -1) {
-      _events.add(event);
-    } else {
-      _events[index] = event;
-    }
-    _hasLoadedDummyEvents = true;
-    notifyListeners();
-
+  Future<void> upsertEvent(Event event) async {
     if (!AppConfig.useFirebaseInDevelopment) {
       return;
     }
 
-    FirebaseFirestore.instance.collection('events').doc(event.eventId).set(event.toJson()).catchError((error) {
-      debugPrint('Fehler beim Speichern des Events: $error');
-    });
+    await FirebaseFirestore.instance.collection('events').doc(event.eventId).set(event.toJson());
   }
 
-  void deleteEvent(String eventId) {
-    _events.removeWhere((e) => e.eventId == eventId);
-    _hasLoadedDummyEvents = true;
-    notifyListeners();
-
+  Future<void> deleteEvent(String eventId) async {
     if (!AppConfig.useFirebaseInDevelopment) {
       return;
     }
 
-    FirebaseFirestore.instance.collection('events').doc(eventId).delete().catchError((error) {
-      debugPrint('Fehler beim Löschen des Events: $error');
-    });
+    await FirebaseFirestore.instance.collection('events').doc(eventId).delete();
   }
 }
-
