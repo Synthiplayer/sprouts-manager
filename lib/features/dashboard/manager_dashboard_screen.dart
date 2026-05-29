@@ -21,7 +21,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
       const EventManagementPage(),
       const UserManagementPage(),
       const EventCalculationScreen(),
-      const LocationManagementPage(),
+      const LocationManagementScreen(),
       const StatisticsPage(),
     ];
 
@@ -73,4 +73,5 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
     );
   }
 }
+
 
