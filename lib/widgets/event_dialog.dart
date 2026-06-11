@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sprouts_manager/core/domain_enums.dart';
+import 'package:sprouts_manager/features/events/event_category_ui.dart';
 
 import '../app/state/app_state_providers.dart';
 import '../models/event.dart';
@@ -16,6 +18,7 @@ class EventDialog extends ConsumerStatefulWidget {
 
 class _EventDialogState extends ConsumerState<EventDialog> {
   final TextEditingController nameController = TextEditingController();
+  final TextEditingController earlyBirdDeadlineController = TextEditingController();
   final TextEditingController dateController = TextEditingController();
   final TextEditingController startTimeController = TextEditingController();
   final TextEditingController endTimeController = TextEditingController();
@@ -26,6 +29,7 @@ class _EventDialogState extends ConsumerState<EventDialog> {
   final TextEditingController minimaleTeilnehmerController = TextEditingController();
   final TextEditingController maximaleTeilnehmerController = TextEditingController();
   String raumAufbau = 'Stehend';
+  EventCategory category = EventCategory.concert;
 
   @override
   void initState() {
@@ -38,12 +42,32 @@ class _EventDialogState extends ConsumerState<EventDialog> {
       endTimeController.text = widget.event!.uhrzeitEnde;
       preisNormalController.text = widget.event!.anmeldePreise['Normal'].toString();
       preisEarlyBirdController.text = widget.event!.anmeldePreise['EarlyBird'].toString();
+      earlyBirdDeadlineController.text = widget.event!.earlyBirdDeadline == null
+          ? ''
+          : DateFormat('dd.MM.yyyy').format(widget.event!.earlyBirdDeadline!);
       altersbeschraenkungController.text = widget.event!.altersbeschraenkung.toString();
       anmeldeschlussController.text = DateFormat('dd.MM.yyyy').format(widget.event!.anmeldeschluss);
       minimaleTeilnehmerController.text = widget.event!.minimaleTeilnehmerzahl.toString();
       maximaleTeilnehmerController.text = widget.event!.maximaleTeilnehmerzahl.toString();
       raumAufbau = widget.event!.raumAufbau;
+      category = widget.event!.category;
     }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    earlyBirdDeadlineController.dispose();
+    dateController.dispose();
+    startTimeController.dispose();
+    endTimeController.dispose();
+    preisNormalController.dispose();
+    preisEarlyBirdController.dispose();
+    altersbeschraenkungController.dispose();
+    anmeldeschlussController.dispose();
+    minimaleTeilnehmerController.dispose();
+    maximaleTeilnehmerController.dispose();
+    super.dispose();
   }
 
   @override
@@ -54,6 +78,26 @@ class _EventDialogState extends ConsumerState<EventDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            DropdownButtonFormField<EventCategory>(
+              initialValue: category,
+              items: EventCategory.values
+                  .map(
+                    (value) => DropdownMenuItem<EventCategory>(
+                      value: value,
+                      child: value.toDropdownItem(),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) {
+                  return;
+                }
+                setState(() {
+                  category = value;
+                });
+              },
+              decoration: const InputDecoration(labelText: 'Kategorie'),
+            ),
             TextField(
               controller: nameController,
               decoration: const InputDecoration(labelText: 'Eventname'),
@@ -93,6 +137,22 @@ class _EventDialogState extends ConsumerState<EventDialog> {
               keyboardType: TextInputType.number,
             ),
             TextField(
+              controller: earlyBirdDeadlineController,
+              decoration: const InputDecoration(labelText: 'Early-Bird-Deadline (tt.mm.jjjj)'),
+              keyboardType: TextInputType.datetime,
+              onTap: () async {
+                DateTime? pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: widget.event?.earlyBirdDeadline ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (pickedDate != null) {
+                  earlyBirdDeadlineController.text = DateFormat('dd.MM.yyyy').format(pickedDate);
+                }
+              },
+            ),
+            TextField(
               controller: altersbeschraenkungController,
               decoration: const InputDecoration(labelText: 'Altersbeschränkung'),
               keyboardType: TextInputType.number,
@@ -123,21 +183,6 @@ class _EventDialogState extends ConsumerState<EventDialog> {
               decoration: const InputDecoration(labelText: 'Maximale Teilnehmer'),
               keyboardType: TextInputType.number,
             ),
-            DropdownButtonFormField<String>(
-              initialValue: raumAufbau,
-              items: ['Stehend', 'Sitzend', 'Mischung']
-                  .map((aufbau) => DropdownMenuItem(
-                        value: aufbau,
-                        child: Text(aufbau),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  raumAufbau = value!;
-                });
-              },
-              decoration: const InputDecoration(labelText: 'Raumaufbau'),
-            ),
           ],
         ),
       ),
@@ -152,12 +197,15 @@ class _EventDialogState extends ConsumerState<EventDialog> {
           onPressed: () {
             final newEvent = Event(
               eventId: widget.event?.eventId ?? 'event_${DateTime.now().millisecondsSinceEpoch}',
-              kategorie: 'Konzert',
+              category: category,
               veranstaltungsname: nameController.text,
               kurzbeschreibung: 'Beschreibung',
               datum: DateFormat('dd.MM.yyyy').parse(dateController.text),
               uhrzeitStart: startTimeController.text,
               uhrzeitEnde: endTimeController.text,
+              earlyBirdDeadline: earlyBirdDeadlineController.text.trim().isEmpty
+                  ? null
+                  : DateFormat('dd.MM.yyyy').parse(earlyBirdDeadlineController.text),
               altersbeschraenkung: int.parse(altersbeschraenkungController.text),
               anmeldeschluss: DateFormat('dd.MM.yyyy').parse(anmeldeschlussController.text),
               anmeldePreise: {
@@ -170,8 +218,14 @@ class _EventDialogState extends ConsumerState<EventDialog> {
               featureFlag: true,
               raumAufbau: raumAufbau,
               bildAsset: null,
-              teilnehmerliste: const [],
-              status: 'Aktiv',
+              teilnehmerliste: widget.event?.teilnehmerliste ?? const [],
+              eingecheckteListe: widget.event?.eingecheckteListe ?? const [],
+              status: widget.event?.status ?? 'open',
+              addons: widget.event?.addons,
+              addonPreise: widget.event?.addonPreise,
+              langbeschreibung: widget.event?.langbeschreibung,
+              bewertungen: widget.event?.bewertungen,
+              lockedIn: widget.event?.lockedIn ?? false,
             );
 
             ref.read(eventListProvider.notifier).addOrUpdateEvent(newEvent);

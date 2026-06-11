@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:sprouts_manager/features/event_calculation/presentation/screens/event_calculation_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:sprouts_manager/features/admission/admission_mode_screen.dart';
 import 'package:sprouts_manager/features/events/event_management_page.dart';
 import 'package:sprouts_manager/features/locations/presentation/screens/location_management_screen.dart';
 import 'package:sprouts_manager/pages/statistics_page.dart';
@@ -19,16 +19,16 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       const EventManagementPage(),
+      const AdmissionModeScreen(),
       const UserManagementPage(),
-      const EventCalculationScreen(),
       const LocationManagementScreen(),
       const StatisticsPage(),
     ];
 
     final labels = <String>[
-      'Events',
+      'Eventplanung',
+      'Einlass',
       'Teilnehmer',
-      'Kalkulation',
       'Locations',
       'Statistiken',
     ];
@@ -46,15 +46,15 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.event),
-                label: Text('Events'),
+                label: Text('Eventplanung'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.confirmation_number),
+                label: Text('Einlass'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.groups),
                 label: Text('Teilnehmer'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.calculate),
-                label: Text('Kalkulation'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.location_on),
@@ -73,5 +73,3 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
     );
   }
 }
-
-

@@ -44,14 +44,14 @@ class AdmissionModeScreen extends ConsumerWidget {
                   ],
                   if (upcomingEvents.isNotEmpty) ...[
                     _EventGroupCard(
-                      title: 'Demnächst',
+                      title: 'Nächste Events',
                       events: upcomingEvents,
                     ),
                     const SizedBox(height: 12),
                   ],
                   if (otherLocalEvents.isNotEmpty)
                     _EventGroupCard(
-                      title: 'Weitere lokale Events',
+                      title: 'Weitere Events',
                       events: otherLocalEvents,
                     ),
                   if (todayEvents.isEmpty &&

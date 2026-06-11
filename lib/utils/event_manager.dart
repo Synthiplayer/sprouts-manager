@@ -1,5 +1,6 @@
 ﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:sprouts_manager/core/domain_enums.dart';
 
 import '../core/app_config.dart';
 import '../models/event.dart';
@@ -24,12 +25,13 @@ class EventManager {
     return [
       Event(
         eventId: 'demo_event_1',
-        kategorie: 'Party',
+        category: EventCategory.party,
         veranstaltungsname: 'Demo Night Berlin',
         kurzbeschreibung: 'Lokales Demo-Event ohne Live-Firebase',
         datum: DateTime.now().add(const Duration(days: 5)),
         uhrzeitStart: '20:00',
         uhrzeitEnde: '02:00',
+        earlyBirdDeadline: DateTime.now().add(const Duration(days: 2)),
         altersbeschraenkung: 18,
         anmeldeschluss: DateTime.now().add(const Duration(days: 4)),
         anmeldePreise: const {'Normal': 15, 'EarlyBird': 10},
@@ -44,12 +46,13 @@ class EventManager {
       ),
       Event(
         eventId: 'demo_event_2',
-        kategorie: 'Konzert',
+        category: EventCategory.concert,
         veranstaltungsname: 'Acoustic Session',
         kurzbeschreibung: 'Zweites Demo-Event',
         datum: DateTime.now().add(const Duration(days: 12)),
         uhrzeitStart: '19:30',
         uhrzeitEnde: '23:00',
+        earlyBirdDeadline: DateTime.now().add(const Duration(days: 8)),
         altersbeschraenkung: 16,
         anmeldeschluss: DateTime.now().add(const Duration(days: 11)),
         anmeldePreise: const {'Normal': 20, 'EarlyBird': 14},

@@ -1,14 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart'; // Timestamp importieren
+import 'package:sprouts_manager/core/domain_enums.dart';
 
 class Event {
   final String eventId;
-  final String kategorie;
+  final EventCategory category;
   final String veranstaltungsname;
   final String kurzbeschreibung;
   final String? bildAsset;
   final DateTime datum;
   final String uhrzeitStart;
   final String uhrzeitEnde;
+  final DateTime? earlyBirdDeadline;
   final int altersbeschraenkung;
   final DateTime anmeldeschluss;
   final Map<String, int>
@@ -28,14 +30,20 @@ class Event {
   final List<Map<String, dynamic>>? bewertungen;
   bool lockedIn;
 
+  String get kategorie => category.label;
+
+  bool get hasReachedBreakEven =>
+      teilnehmerliste.length >= minimaleTeilnehmerzahl && minimaleTeilnehmerzahl > 0;
+
   Event({
     required this.eventId,
-    required this.kategorie,
+    required this.category,
     required this.veranstaltungsname,
     required this.kurzbeschreibung,
     required this.datum,
     required this.uhrzeitStart,
     required this.uhrzeitEnde,
+    this.earlyBirdDeadline,
     required this.altersbeschraenkung,
     required this.anmeldeschluss,
     required this.anmeldePreise, // Einfacher Map für Normal und EarlyBird
@@ -59,6 +67,7 @@ class Event {
   Map<String, dynamic> toJson() {
     return {
       'eventId': eventId,
+      'category': category.name,
       'kategorie': kategorie,
       'veranstaltungsname': veranstaltungsname,
       'kurzbeschreibung': kurzbeschreibung,
@@ -66,6 +75,7 @@ class Event {
       'datum': datum.toIso8601String(),
       'uhrzeitStart': uhrzeitStart,
       'uhrzeitEnde': uhrzeitEnde,
+      'earlyBirdDeadline': earlyBirdDeadline?.toIso8601String(),
       'altersbeschraenkung': altersbeschraenkung,
       'anmeldeschluss': anmeldeschluss.toIso8601String(),
       'anmeldePreise': anmeldePreise, // Einfacher Map
@@ -88,14 +98,31 @@ class Event {
 
   // Factory-Methode zum Erstellen eines Event-Objekts aus JSON
   factory Event.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic raw) {
+      if (raw is Timestamp) {
+        return raw.toDate();
+      }
+
+      if (raw is String && raw.isNotEmpty) {
+        return DateTime.tryParse(raw) ?? DateTime.now();
+      }
+
+      return DateTime.now();
+    }
+
     return Event(
       eventId: json['eventId'] as String? ?? '',
-      kategorie: json['kategorie'] as String? ?? '',
+      category: EventCategoryX.fromStoredValue(
+        json['category'] as String? ?? json['kategorie'] as String?,
+      ),
       veranstaltungsname: json['veranstaltungsname'] as String? ?? '',
       kurzbeschreibung: json['kurzbeschreibung'] as String? ?? '',
       bildAsset: json['bildAsset'] as String?,
-      datum: (json['datum'] as Timestamp).toDate(),
-      anmeldeschluss: (json['anmeldeschluss'] as Timestamp).toDate(),
+      datum: parseDate(json['datum']),
+      earlyBirdDeadline: json['earlyBirdDeadline'] == null
+          ? null
+          : parseDate(json['earlyBirdDeadline']),
+      anmeldeschluss: parseDate(json['anmeldeschluss']),
       uhrzeitStart: json['uhrzeitStart'] as String? ?? '',
       uhrzeitEnde: json['uhrzeitEnde'] as String? ?? '',
       altersbeschraenkung: json['altersbeschraenkung'] as int? ?? 0,
