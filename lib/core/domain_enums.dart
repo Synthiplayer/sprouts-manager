@@ -1,4 +1,4 @@
-﻿enum EventStatus {
+enum EventStatus {
   open,
   confirmed,
   soldOut,
@@ -31,6 +31,36 @@ enum ParticipantType {
   wheelchair,
   child,
   waitlist,
+}
+
+enum UserAccessStatus {
+  green,
+  yellow,
+  red,
+}
+
+extension UserAccessStatusX on UserAccessStatus {
+  String get label {
+    switch (this) {
+      case UserAccessStatus.green:
+        return 'Grün';
+      case UserAccessStatus.yellow:
+        return 'Gelb';
+      case UserAccessStatus.red:
+        return 'Rot';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case UserAccessStatus.green:
+        return 'Unauffällig';
+      case UserAccessStatus.yellow:
+        return 'Prüfen / manuelle Kontrolle';
+      case UserAccessStatus.red:
+        return 'Gesperrt / kein Einlass / Hausverbot';
+    }
+  }
 }
 
 enum EventCategory {

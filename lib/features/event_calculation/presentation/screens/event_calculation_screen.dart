@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sprouts_manager/core/event_currency_config.dart';
 import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
 
 import '../../application/event_calculation_notifier.dart';
@@ -12,11 +11,6 @@ class EventCalculationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(eventCalculationProvider);
     final notifier = ref.read(eventCalculationProvider.notifier);
-    final freeTickets =
-        (state.expectedParticipants - state.expectedTicketCount).clamp(
-      0,
-      state.expectedParticipants,
-    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Eventkalkulation')),
@@ -27,7 +21,7 @@ class EventCalculationScreen extends ConsumerWidget {
             title: 'Kosten',
             children: [
               _NumberField(
-                label: 'Künstler / DJ / Band',
+                label: 'Kuenstler / DJ / Band',
                 onChanged: notifier.updateArtistCost,
               ),
               _NumberField(
@@ -99,51 +93,36 @@ class EventCalculationScreen extends ConsumerWidget {
             title: 'Ergebnisse',
             children: [
               _ResultRow(
-                label: 'Gesamtkosten',
+                label: 'Ticketpreis',
+                value:
+                    '${state.normalTicketPriceEvc} EVC / ${formatEuro(state.normalTicketValueEur)}',
+              ),
+              _ResultRow(
+                label: 'Grundkosten',
                 value: formatEuro(notifier.totalCosts),
               ),
+              if (state.sponsorAndGrantTotalEur > 0)
+                _ResultRow(
+                  label: 'Sponsoring / Zuschuesse',
+                  value: formatEuro(state.sponsorAndGrantTotalEur),
+                ),
               _ResultRow(
-                label: 'Erwartete Einnahmen',
-                value: formatEuro(notifier.expectedRevenueEur),
+                label: 'Zu deckender Betrag',
+                value: formatEuro(state.amountToCoverEur),
               ),
               _ResultRow(
-                label: 'Normalpreis',
-                value:
-                    '${state.normalTicketPriceEvc} EVC ≈ ${formatEuro(state.normalTicketValueEur)}',
-              ),
-              _ResultRow(
-                label: 'Early-Bird-Preis',
-                value:
-                    '${state.earlyBirdTicketPriceEvc} EVC ≈ ${formatEuro(state.earlyBirdTicketValueEur)}',
-              ),
-              _ResultRow(
-                label: 'Durchschnittlicher Ticketwert',
-                value: formatEuro(state.averageTicketValueEur),
-              ),
-              _ResultRow(
-                label: 'Break-even-Teilnehmer (Normalpreis)',
+                label: 'Break-even-Teilnehmer',
                 value: '${notifier.breakEvenParticipants}',
               ),
               _ResultRow(
-                label: 'Mindestteilnehmer-Vorschlag',
-                value: '${notifier.suggestedMinimumParticipants}',
+                label: 'Fehlende Teilnehmer',
+                value:
+                    '${(notifier.breakEvenParticipants - notifier.payingParticipants).clamp(0, notifier.breakEvenParticipants)}',
               ),
               _ResultRow(
-                label: 'Erwarteter Überschuss / Fehlbetrag',
-                value: formatEuro(notifier.expectedBalance),
+                label: 'Upgrade-Budget',
+                value: formatEuro(state.upgradeBudgetAfterBreakEvenEur),
                 emphasize: true,
-              ),
-              const SizedBox(height: 8),
-              Text('Risiko-Hinweis: ${notifier.riskHint}'),
-              const SizedBox(height: 8),
-              Text(
-                'Aktueller Kalkulationswert: 1 EVC = ${formatEuro(EventCurrencyConfig.evcToEur(1))}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Zahlende Teilnehmer: ${notifier.payingParticipants} (Erwartet: ${state.expectedParticipants}, Freitickets: $freeTickets)',
-                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),

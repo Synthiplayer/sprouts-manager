@@ -14,7 +14,7 @@ extension CalculationStatusX on CalculationStatus {
       case CalculationStatus.draft:
         return 'Entwurf';
       case CalculationStatus.inReview:
-        return 'In Prüfung';
+        return 'In Pruefung';
       case CalculationStatus.breakEvenReached:
         return 'Break-even erreicht';
       case CalculationStatus.lockedIn:
@@ -65,13 +65,13 @@ extension CostCategoryX on CostCategory {
       case CostCategory.location:
         return 'Location';
       case CostCategory.artist:
-        return 'Künstler';
+        return 'Kuenstler';
       case CostCategory.supportAct:
         return 'Support-Act';
       case CostCategory.dj:
         return 'DJ';
       case CostCategory.stage:
-        return 'Bühne';
+        return 'Buehne';
       case CostCategory.sound:
         return 'Ton';
       case CostCategory.light:
@@ -83,7 +83,7 @@ extension CostCategoryX on CostCategory {
       case CostCategory.security:
         return 'Security';
       case CostCategory.medical:
-        return 'Sanitätsdienst';
+        return 'Sanitaetsdienst';
       case CostCategory.barriers:
         return 'Absperrungen';
       case CostCategory.toilets:
@@ -99,7 +99,7 @@ extension CostCategoryX on CostCategory {
       case CostCategory.ticketing:
         return 'Ticketsystem';
       case CostCategory.wristbands:
-        return 'Armbänder';
+        return 'Armbaender';
       case CostCategory.staff:
         return 'Personal';
       case CostCategory.catering:
@@ -115,7 +115,7 @@ extension CostCategoryX on CostCategory {
       case CostCategory.waste:
         return 'Entsorgung';
       case CostCategory.office:
-        return 'Büro';
+        return 'Buero';
       case CostCategory.software:
         return 'Software';
       case CostCategory.materials:
@@ -154,15 +154,15 @@ extension UpgradeBudgetCategoryX on UpgradeBudgetCategory {
       case UpgradeBudgetCategory.decoration:
         return 'Dekoration';
       case UpgradeBudgetCategory.freeDrinks:
-        return 'Freigetränke';
+        return 'Freigetraenke';
       case UpgradeBudgetCategory.supportAct:
-        return 'Zusätzlicher Support-Act';
+        return 'Zusaetzlicher Support-Act';
       case UpgradeBudgetCategory.guestBonus:
         return 'Gastbonus';
       case UpgradeBudgetCategory.evcRefund:
         return 'Eventcoin-Erstattung';
       case UpgradeBudgetCategory.reserve:
-        return 'Rücklage';
+        return 'Ruecklage';
       case UpgradeBudgetCategory.organizerMargin:
         return 'Veranstalter-Marge';
       case UpgradeBudgetCategory.other:
@@ -195,9 +195,6 @@ class CalculationCostItem {
   double get netTotalEur => quantity * unitNetEur;
   double get taxAmountEur => netTotalEur * taxRate;
   double get grossTotalEur => netTotalEur + taxAmountEur;
-  int get netTotalCents => EventCurrencyConfig.eurToCents(netTotalEur);
-  int get taxAmountCents => EventCurrencyConfig.eurToCents(taxAmountEur);
-  int get grossTotalCents => EventCurrencyConfig.eurToCents(grossTotalEur);
 
   CalculationCostItem copyWith({
     String? id,
@@ -307,22 +304,15 @@ class EventCalculationModel {
     this.notes = '',
   });
 
-  int get evcToEurCentsRate => EventCurrencyConfig.centsPerEvc;
   double get evcToEurRate => EventCurrencyConfig.eurPerEvc;
 
   int get expectedTicketCount => expectedEarlyBirdTickets + expectedRegularTickets;
 
-  int get normalTicketValueCents =>
-      EventCurrencyConfig.evcToCents(normalTicketPriceEvc);
-
-  int get earlyBirdTicketValueCents =>
-      EventCurrencyConfig.evcToCents(earlyBirdTicketPriceEvc);
-
   double get normalTicketValueEur =>
-      EventCurrencyConfig.centsToEur(normalTicketValueCents);
+      EventCurrencyConfig.evcToEur(normalTicketPriceEvc);
 
   double get earlyBirdTicketValueEur =>
-      EventCurrencyConfig.centsToEur(earlyBirdTicketValueCents);
+      EventCurrencyConfig.evcToEur(earlyBirdTicketPriceEvc);
 
   double get averageTicketPriceEvc {
     if (expectedTicketCount <= 0) {
@@ -334,18 +324,15 @@ class EventCalculationModel {
     return weightedRevenue / expectedTicketCount;
   }
 
-  int get averageTicketValueCents {
+  double get averageTicketValueEur {
     if (expectedTicketCount <= 0) {
-      return normalTicketValueCents;
+      return normalTicketValueEur;
     }
 
-    final weightedRevenue = (expectedEarlyBirdTickets * earlyBirdTicketValueCents) +
-        (expectedRegularTickets * normalTicketValueCents);
-    return (weightedRevenue / expectedTicketCount).round();
+    final weightedRevenue = (expectedEarlyBirdTickets * earlyBirdTicketValueEur) +
+        (expectedRegularTickets * normalTicketValueEur);
+    return weightedRevenue / expectedTicketCount;
   }
-
-  double get averageTicketValueEur =>
-      EventCurrencyConfig.centsToEur(averageTicketValueCents);
 
   double get currentCostNetEur =>
       costItems.fold(0, (sum, item) => sum + item.netTotalEur);
@@ -356,32 +343,14 @@ class EventCalculationModel {
   double get currentCostGrossEur =>
       costItems.fold(0, (sum, item) => sum + item.grossTotalEur);
 
-  int get currentCostNetCents =>
-      costItems.fold(0, (sum, item) => sum + item.netTotalCents);
-
-  int get currentCostTaxCents =>
-      costItems.fold(0, (sum, item) => sum + item.taxAmountCents);
-
-  int get currentCostGrossCents =>
-      costItems.fold(0, (sum, item) => sum + item.grossTotalCents);
-
-  double get baseCostGrossEur =>
-      EventCurrencyConfig.centsToEur(baseCostGrossCents);
-
-  int get baseCostGrossCents => costItems
+  double get baseCostGrossEur => costItems
       .where((item) => item.isRequiredForBreakEven)
-      .fold(0, (sum, item) => sum + item.grossTotalCents);
+      .fold(0.0, (sum, item) => sum + item.grossTotalEur);
 
   double get sponsorAndGrantTotalEur => sponsorAmountEur + grantAmountEur;
 
-  int get sponsorAndGrantTotalCents =>
-      EventCurrencyConfig.eurToCents(sponsorAndGrantTotalEur);
-
-  double get amountToCoverEur =>
-      EventCurrencyConfig.centsToEur(amountToCoverCents);
-
-  int get amountToCoverCents {
-    final result = baseCostGrossCents - sponsorAndGrantTotalCents;
+  double get amountToCoverEur {
+    final result = baseCostGrossEur - sponsorAndGrantTotalEur;
     return result < 0 ? 0 : result;
   }
 
@@ -397,38 +366,26 @@ class EventCalculationModel {
       (expectedEarlyBirdTickets * earlyBirdTicketPriceEvc) +
       (expectedRegularTickets * normalTicketPriceEvc);
 
-  int get expectedRevenueCents =>
-      (expectedEarlyBirdTickets * earlyBirdTicketValueCents) +
-      (expectedRegularTickets * normalTicketValueCents);
-
   double get expectedRevenueEur =>
-      EventCurrencyConfig.centsToEur(expectedRevenueCents);
+      (expectedEarlyBirdTickets * earlyBirdTicketValueEur) +
+      (expectedRegularTickets * normalTicketValueEur);
 
   double get fullCapacityRevenueEvc {
     final capacity = maxParticipants > 0 ? maxParticipants : expectedParticipants;
     return capacity * averageTicketPriceEvc;
   }
 
-  int get fullCapacityRevenueCents {
+  double get fullCapacityRevenueEur {
     final capacity = maxParticipants > 0 ? maxParticipants : expectedParticipants;
-    return capacity * averageTicketValueCents;
+    return capacity * averageTicketValueEur;
   }
 
-  double get fullCapacityRevenueEur =>
-      EventCurrencyConfig.centsToEur(fullCapacityRevenueCents);
-
-  int get revenueAboveBreakEvenCents {
-    final result = expectedRevenueCents - EventCurrencyConfig.eurToCents(amountToCoverEur);
+  double get revenueAboveBreakEvenEur {
+    final result = expectedRevenueEur - amountToCoverEur;
     return result < 0 ? 0 : result;
   }
 
-  double get revenueAboveBreakEvenEur =>
-      expectedRevenueEur - amountToCoverEur < 0 ? 0 : expectedRevenueEur - amountToCoverEur;
-
-  int get upgradeBudgetAfterBreakEvenCents => revenueAboveBreakEvenCents;
-
-  double get upgradeBudgetAfterBreakEvenEur =>
-      EventCurrencyConfig.centsToEur(upgradeBudgetAfterBreakEvenCents);
+  double get upgradeBudgetAfterBreakEvenEur => revenueAboveBreakEvenEur;
 
   EventCalculationModel copyWith({
     String? id,

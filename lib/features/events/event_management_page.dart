@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sprouts_manager/app/state/app_state_providers.dart';
 import 'package:sprouts_manager/core/domain_enums.dart';
-import 'package:sprouts_manager/core/event_currency_config.dart';
 import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
 import 'package:sprouts_manager/core/responsive/app_breakpoints.dart';
 import 'package:sprouts_manager/features/event_calculation/application/event_calculation_notifier.dart';
@@ -15,7 +14,14 @@ import 'package:sprouts_manager/widgets/event_dialog.dart';
 enum EventPlanningStatusTab {
   planning,
   breakEvenReached,
+  confirmed,
   all,
+}
+
+enum EventWorkspaceTab {
+  participants,
+  calculation,
+  details,
 }
 
 class EventManagementPage extends StatelessWidget {
@@ -53,6 +59,7 @@ class EventPlanningScreen extends ConsumerStatefulWidget {
 
 class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
   EventPlanningStatusTab _statusTab = EventPlanningStatusTab.planning;
+  EventWorkspaceTab _workspaceTab = EventWorkspaceTab.participants;
   EventCategory? _categoryFilter;
   String? _selectedEventId;
 
@@ -66,8 +73,7 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
 
     final content = Column(
       children: [
-        _buildCompactToolbar(context),
-        _buildFilterHeader(),
+        _buildFilterToolbar(context),
         Expanded(
           child: isDesktopLike
               ? Row(
@@ -76,10 +82,14 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
                       flex: 58,
                       child: _buildEventList(filteredEvents, selectedEvent),
                     ),
-                    const VerticalDivider(width: 1, thickness: 0.8),
+                    Container(
+                      width: 1,
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                    ),
                     Expanded(
                       flex: 42,
-                      child: _buildDetailPane(selectedEvent),
+                      child: _buildWorkspacePane(context, selectedEvent),
                     ),
                   ],
                 )
@@ -90,8 +100,8 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
                     ),
                     if (selectedEvent != null)
                       SizedBox(
-                        height: 340,
-                        child: _buildDetailPane(selectedEvent),
+                        height: 380,
+                        child: _buildWorkspacePane(context, selectedEvent),
                       ),
                   ],
                 ),
@@ -114,17 +124,23 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
     );
   }
 
-  Widget _buildCompactToolbar(BuildContext context) {
+  Widget _buildFilterToolbar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              'Status und Kategorien filtern',
-              style: Theme.of(context).textTheme.titleSmall,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusTabs(),
+                const SizedBox(height: 6),
+                _buildCategoryFilter(),
+              ],
             ),
           ),
+          const SizedBox(width: 12),
           FilledButton.icon(
             onPressed: () => _openEventDialog(context),
             icon: const Icon(Icons.add),
@@ -135,29 +151,20 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
     );
   }
 
-  Widget _buildFilterHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Column(
-        children: [
-          _buildStatusTabs(),
-          const SizedBox(height: 6),
-          _buildCategoryFilter(),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStatusTabs() {
     return SegmentedButton<EventPlanningStatusTab>(
       segments: const [
         ButtonSegment<EventPlanningStatusTab>(
           value: EventPlanningStatusTab.planning,
-          label: Text('In Planung'),
+          label: Text('In Abstimmung'),
         ),
         ButtonSegment<EventPlanningStatusTab>(
           value: EventPlanningStatusTab.breakEvenReached,
-          label: Text('Break-even erreicht'),
+          label: Text('Break-even'),
+        ),
+        ButtonSegment<EventPlanningStatusTab>(
+          value: EventPlanningStatusTab.confirmed,
+          label: Text('Bestaetigt'),
         ),
         ButtonSegment<EventPlanningStatusTab>(
           value: EventPlanningStatusTab.all,
@@ -175,14 +182,14 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
 
   Widget _buildCategoryFilter() {
     return SizedBox(
-      height: 42,
+      height: 36,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: const Text('Alle Kategorien'),
+              label: const Text('Alle'),
               selected: _categoryFilter == null,
               visualDensity: VisualDensity.compact,
               onSelected: (_) {
@@ -221,7 +228,7 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
   Widget _buildEventList(List<Event> events, Event? selectedEvent) {
     if (events.isEmpty) {
       return const Center(
-        child: Text('Keine Events für die aktuelle Filterauswahl.'),
+        child: Text('Keine Events fuer die aktuelle Filterauswahl.'),
       );
     }
 
@@ -231,99 +238,157 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
       itemBuilder: (context, index) {
         final event = events[index];
         final isSelected = selectedEvent?.eventId == event.eventId;
-        final statusText =
-            event.hasReachedBreakEven ? 'Break-even erreicht' : 'In Planung';
+        final participantCount = event.teilnehmerliste.length;
+        final minParticipants = event.minimaleTeilnehmerzahl;
+        final progress = minParticipants > 0
+            ? (participantCount / minParticipants).clamp(0.0, 1.0).toDouble()
+            : 0.0;
+        final breakEvenText =
+            event.hasReachedBreakEven ? 'Break-even erreicht' : 'Break-even offen';
+        final ticketPrice = event.anmeldePreise['Normal'] ?? 0;
 
-        return Card(
-          color: event.category.color,
-          margin: const EdgeInsets.symmetric(vertical: 5),
-          shape: RoundedRectangleBorder(
-            side: BorderSide(
-              color: isSelected ? Colors.white : Colors.transparent,
-              width: 1.8,
-            ),
-            borderRadius: BorderRadius.circular(10),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: event.category.color.withValues(alpha: 0.28),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : const [],
           ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: () {
-              if (widget.onOpenEventForAdmission != null) {
-                widget.onOpenEventForAdmission!(event);
-                return;
-              }
+          child: Card(
+            color: event.category.color,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: isSelected ? Colors.white : Colors.transparent,
+                width: isSelected ? 2.4 : 1.0,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                if (widget.onOpenEventForAdmission != null) {
+                  widget.onOpenEventForAdmission!(event);
+                  return;
+                }
 
-              setState(() {
-                _selectedEventId = event.eventId;
-              });
-              _openEventDetailDialog(context, event);
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
+                setState(() {
+                  _selectedEventId = event.eventId;
+                  _workspaceTab = EventWorkspaceTab.participants;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(child: event.category.toChip(filled: false)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                statusText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          event.veranstaltungsname,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              event.category.toChip(filled: false),
+                              _cardBadge(_workflowStatusLabel(event)),
+                              if (isSelected) _cardBadge('Ausgewaehlt'),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_formatDate(event.datum)} | ${event.uhrzeitStart} - ${event.uhrzeitEnde}',
-                          style: const TextStyle(fontSize: 13, color: Colors.white),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          splashRadius: 18,
+                          icon: const Icon(Icons.edit, color: Colors.white, size: 20),
+                          onPressed: () => _openEventDialog(context, event: event),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          splashRadius: 18,
+                          icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
+                          onPressed: () {
+                            _showDeleteConfirmation(context, ref, event);
+                          },
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        splashRadius: 18,
-                        icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-                        onPressed: () => _openEventDialog(context, event: event),
+                    const SizedBox(height: 8),
+                    Text(
+                      event.veranstaltungsname,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        splashRadius: 18,
-                        icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
-                        onPressed: () {
-                          _showDeleteConfirmation(context, ref, event);
-                        },
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      event.hasReachedBreakEven
+                          ? 'Termin: ${_formatDate(event.datum)}'
+                          : 'Terminstatus: Termin offen',
+                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                    ),
+                    if (event.uhrzeitStart.trim().isNotEmpty)
+                      Text(
+                        'Uhrzeit: ${event.uhrzeitStart}${event.uhrzeitEnde.trim().isNotEmpty ? ' - ${event.uhrzeitEnde}' : ''}',
+                        style: const TextStyle(fontSize: 13, color: Colors.white),
                       ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      '$participantCount / $minParticipants Mindestteilnehmer',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        minHeight: 6,
+                        value: progress,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 6,
+                      children: [
+                        Text(
+                          breakEvenText,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          '$ticketPrice EVC',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -332,22 +397,26 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
     );
   }
 
-  Widget _buildDetailPane(Event? event) {
+  Widget _buildWorkspacePane(BuildContext context, Event? event) {
     if (event == null) {
       return const Center(
-        child: Text('Wähle ein Event aus, um Details und Kalkulationsvorschau zu sehen.'),
+        child: Text('Waehle ein Event aus, um Teilnehmer, Kalkulation und Aktionen zu sehen.'),
       );
     }
 
     final calculation = ref.watch(eventCalculationPreviewProvider(event));
-    final normalPrice = event.anmeldePreise['Normal'] ?? 0;
-    final earlyBirdPrice = event.anmeldePreise['EarlyBird'] ?? 0;
     final participantCount = event.teilnehmerliste.length;
-    final progressToMinimum = event.minimaleTeilnehmerzahl > 0
-        ? (participantCount / event.minimaleTeilnehmerzahl)
-            .clamp(0.0, 1.0)
-            .toDouble()
+    final minParticipants = event.minimaleTeilnehmerzahl;
+    final maxParticipants = event.maximaleTeilnehmerzahl;
+    final progress = minParticipants > 0
+        ? (participantCount / minParticipants).clamp(0.0, 1.0).toDouble()
         : 0.0;
+    final ticketPrice = event.anmeldePreise['Normal'] ?? 0;
+    final missingParticipants =
+        (calculation.breakEvenParticipants - participantCount).clamp(
+      0,
+      calculation.breakEvenParticipants,
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -366,128 +435,165 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
               event.category.toChip(),
               Chip(
                 visualDensity: VisualDensity.compact,
-                label: Text(
-                  event.hasReachedBreakEven ? 'Break-even erreicht' : 'In Planung',
-                ),
+                label: Text(_workflowStatusLabel(event)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SegmentedButton<EventWorkspaceTab>(
+            segments: const [
+              ButtonSegment<EventWorkspaceTab>(
+                value: EventWorkspaceTab.participants,
+                label: Text('Teilnehmer'),
+              ),
+              ButtonSegment<EventWorkspaceTab>(
+                value: EventWorkspaceTab.calculation,
+                label: Text('Kalkulation'),
+              ),
+              ButtonSegment<EventWorkspaceTab>(
+                value: EventWorkspaceTab.details,
+                label: Text('Details'),
+              ),
+            ],
+            selected: <EventWorkspaceTab>{_workspaceTab},
+            onSelectionChanged: (selection) {
+              setState(() {
+                _workspaceTab = selection.first;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonal(
+                onPressed: () {
+                  setState(() {
+                    _workspaceTab = EventWorkspaceTab.participants;
+                  });
+                },
+                child: const Text('Teilnehmer verwalten'),
+              ),
+              FilledButton.tonal(
+                onPressed: () {
+                  setState(() {
+                    _workspaceTab = EventWorkspaceTab.calculation;
+                  });
+                },
+                child: const Text('Kalkulation oeffnen'),
+              ),
+              OutlinedButton(
+                onPressed: () => _openEventDialog(context, event: event),
+                child: const Text('Bearbeiten'),
+              ),
+              OutlinedButton(
+                onPressed: () => _openEventDetailDialog(context, event),
+                child: const Text('Grosse Detailansicht'),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _buildDetailSection(
-            context,
-            title: 'Eventdetails',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Datum: ${_formatDate(event.datum)}'),
-                Text('Zeit: ${event.uhrzeitStart} - ${event.uhrzeitEnde}'),
-                Text(
-                  'Terminstatus: ${event.hasReachedBreakEven ? 'Termin nach Break-even' : 'Termin offen'}',
-                ),
-                Text('Raumaufbau: ${event.raumAufbau}'),
-                Text('Veranstalter: ${event.veranstalter}'),
-                if (event.earlyBirdDeadline != null)
-                  Text('Early-Bird-Deadline: ${_formatDate(event.earlyBirdDeadline!)}'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          _buildDetailSection(
-            context,
-            title: 'Teilnehmerstatus',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Teilnehmer aktuell: $participantCount'),
-                Text('Mindestteilnehmer: ${event.minimaleTeilnehmerzahl}'),
-                Text('Maximalteilnehmer: ${event.maximaleTeilnehmerzahl}'),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(value: progressToMinimum),
-                const SizedBox(height: 8),
-                Text(
-                  'Fortschritt zur Mindestteilnehmerzahl: ${(progressToMinimum * 100).round()} %',
-                ),
-                const SizedBox(height: 8),
-                const Text('Teilnehmerliste später hier öffnen'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          _buildDetailSection(
-            context,
-            title: 'Kalkulationsvorschau',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ticketpreis: $normalPrice EVC ≈ ${formatEuro(calculation.normalTicketValueEur)}',
-                ),
-                Text(
-                  'Early-Bird: $earlyBirdPrice EVC ≈ ${formatEuro(calculation.earlyBirdTicketValueEur)}',
-                ),
-                Text(
-                  'Aktueller Kalkulationswert: 1 EVC = ${formatEuro(EventCurrencyConfig.evcToEur(1))}',
-                ),
-                Text('Grundkosten brutto: ${formatEuro(calculation.baseCostGrossEur)}'),
-                Text(
-                  'Zu deckender Betrag: ${formatEuro(calculation.amountToCoverEur)}',
-                ),
-                Text(
-                  'Durchschnittlicher Ticketwert: ${formatEuro(calculation.averageTicketValueEur)}',
-                ),
-                Text(
-                  'Break-even-Teilnehmer: ${calculation.breakEvenParticipants}',
-                ),
-                Text(
-                  'Upgrade-Budget nach Break-even: ${formatEuro(calculation.upgradeBudgetAfterBreakEvenEur)}',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          _buildDetailSection(
-            context,
-            title: 'Aktionen',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Eventkarte öffnet die große Detailansicht mit Übersicht, Kalkulation und Teilnehmerbereich.',
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+          switch (_workspaceTab) {
+            EventWorkspaceTab.participants => _buildDetailSection(
+                context,
+                title: 'Teilnehmer',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    OutlinedButton(
-                      onPressed: () => _openEventDetailDialog(context, event),
-                      child: const Text('Details öffnen'),
+                    _infoLine('Aktuelle Teilnehmer', '$participantCount'),
+                    _infoLine('Mindestteilnehmer', '$minParticipants'),
+                    _infoLine('Maximalteilnehmer', '$maxParticipants'),
+                    const SizedBox(height: 10),
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Fortschritt zur Mindestteilnehmerzahl: ${(progress * 100).round()} %',
                     ),
-                    OutlinedButton(
-                      onPressed: () {
-                        showDialog<void>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Teilnehmer anzeigen'),
-                            content: const Text(
-                              'Teilnehmerliste wird später in einem eigenen Bereich ergänzt.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text('Schließen'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      child: const Text('Teilnehmer anzeigen'),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Teilnehmerverwaltung spaeter: Ticketstatus, Zahlung, Check-in, Erstattung, Ampelstatus und Notizen.',
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            EventWorkspaceTab.calculation => _buildDetailSection(
+                context,
+                title: 'Kalkulation',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _infoLine(
+                      'Ticketpreis',
+                      '$ticketPrice EVC / ${formatEuro(calculation.normalTicketValueEur)}',
+                    ),
+                    _infoLine(
+                      'Grundkosten',
+                      formatEuro(calculation.baseCostGrossEur),
+                    ),
+                    if (calculation.sponsorAndGrantTotalEur > 0)
+                      _infoLine(
+                        'Sponsoring / Zuschuesse',
+                        formatEuro(calculation.sponsorAndGrantTotalEur),
+                      ),
+                    _infoLine(
+                      'Zu deckender Betrag',
+                      formatEuro(calculation.amountToCoverEur),
+                    ),
+                    _infoLine(
+                      'Break-even-Teilnehmer',
+                      '${calculation.breakEvenParticipants}',
+                    ),
+                    _infoLine(
+                      'Fehlende Teilnehmer',
+                      '$missingParticipants',
+                    ),
+                    _infoLine(
+                      'Upgrade-Budget',
+                      formatEuro(calculation.upgradeBudgetAfterBreakEvenEur),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Kalkulationseditor spaeter hier als eigener Arbeitsbereich.',
+                    ),
+                  ],
+                ),
+              ),
+            EventWorkspaceTab.details => _buildDetailSection(
+                context,
+                title: 'Details',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _infoLine('Kategorie', event.category.label),
+                    _infoLine('Status', _workflowStatusLabel(event)),
+                    _infoLine(
+                      'Terminstatus',
+                      event.hasReachedBreakEven ? 'Termin bestaetigt' : 'Termin offen',
+                    ),
+                    _infoLine(
+                      'Datum / Zeit',
+                      '${_formatDate(event.datum)} | ${event.uhrzeitStart}${event.uhrzeitEnde.trim().isNotEmpty ? ' - ${event.uhrzeitEnde}' : ''}',
+                    ),
+                    _infoLine('Location / Setup', 'Noch nicht zugewiesen'),
+                    _infoLine(
+                      'Early-Bird-Deadline',
+                      event.earlyBirdDeadline == null
+                          ? 'Noch offen'
+                          : _formatDate(event.earlyBirdDeadline!),
+                    ),
+                    _infoLine(
+                      'Anmeldeschluss',
+                      _formatDate(event.anmeldeschluss),
+                    ),
+                    _infoLine(
+                      'Preisinfos',
+                      '$ticketPrice EVC / ${formatEuro(calculation.normalTicketValueEur)}',
+                    ),
+                  ],
+                ),
+              ),
+          },
         ],
       ),
     );
@@ -497,9 +603,11 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
     final byStatus = events.where((event) {
       switch (_statusTab) {
         case EventPlanningStatusTab.planning:
-          return !event.hasReachedBreakEven;
+          return !_isConfirmed(event) && !event.hasReachedBreakEven;
         case EventPlanningStatusTab.breakEvenReached:
-          return event.hasReachedBreakEven;
+          return !_isConfirmed(event) && event.hasReachedBreakEven;
+        case EventPlanningStatusTab.confirmed:
+          return _isConfirmed(event);
         case EventPlanningStatusTab.all:
           return true;
       }
@@ -537,9 +645,9 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Event löschen'),
+          title: const Text('Event loeschen'),
           content: Text(
-            'Möchten Sie das Event "${event.veranstaltungsname}" wirklich löschen?',
+            'Moechten Sie das Event "${event.veranstaltungsname}" wirklich loeschen?',
           ),
           actions: [
             TextButton(
@@ -553,7 +661,7 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
                 ref.read(eventListProvider.notifier).deleteEvent(event.eventId);
                 Navigator.of(context).pop();
               },
-              child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+              child: const Text('Loeschen', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -568,7 +676,7 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(12),
@@ -582,11 +690,62 @@ class _EventPlanningScreenState extends ConsumerState<EventPlanningScreen> {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           child,
         ],
       ),
     );
+  }
+
+  Widget _cardBadge(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _infoLine(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(child: Text(value, textAlign: TextAlign.right)),
+        ],
+      ),
+    );
+  }
+
+  String _workflowStatusLabel(Event event) {
+    if (_isConfirmed(event)) {
+      return 'Bestaetigt';
+    }
+
+    return event.hasReachedBreakEven ? 'Break-even erreicht' : 'In Abstimmung';
+  }
+
+  bool _isConfirmed(Event event) {
+    final status = event.status?.trim().toLowerCase();
+    return event.lockedIn || status == 'confirmed' || status == 'bestaetigt';
   }
 
   void _openEventDialog(BuildContext context, {Event? event}) {

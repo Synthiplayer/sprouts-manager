@@ -12,7 +12,7 @@ class UserManagementPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Benutzerverwaltung'),
+        title: const Text('Userverwaltung'),
       ),
       body: ListView.builder(
         itemCount: users.length,

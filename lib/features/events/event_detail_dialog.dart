@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sprouts_manager/core/domain_enums.dart';
-import 'package:sprouts_manager/core/event_currency_config.dart';
 import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
 import 'package:sprouts_manager/features/event_calculation/application/event_calculation_notifier.dart';
 import 'package:sprouts_manager/features/event_calculation/domain/event_calculation_model.dart';
@@ -93,7 +92,7 @@ class EventDetailDialog extends ConsumerWidget {
                           label: const Text('Bearbeiten'),
                         ),
                         IconButton(
-                          tooltip: 'Schließen',
+                          tooltip: 'Schliessen',
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.close),
                         ),
@@ -104,7 +103,7 @@ class EventDetailDialog extends ConsumerWidget {
               ),
               const TabBar(
                 tabs: [
-                  Tab(text: 'Übersicht'),
+                  Tab(text: 'Uebersicht'),
                   Tab(text: 'Kalkulation'),
                   Tab(text: 'Teilnehmer'),
                 ],
@@ -163,7 +162,7 @@ class _OverviewTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionCard(
-            title: 'Übersicht',
+            title: 'Uebersicht',
             child: Wrap(
               spacing: 20,
               runSpacing: 12,
@@ -183,16 +182,12 @@ class _OverviewTab extends StatelessWidget {
                 _InfoPair(
                   label: 'Normalpreis',
                   value:
-                      '$normalPrice EVC ≈ ${formatEuro(calculation.normalTicketValueEur)}',
+                      '$normalPrice EVC = ${formatEuro(calculation.normalTicketValueEur)}',
                 ),
                 _InfoPair(
                   label: 'Early-Bird-Preis',
                   value:
-                      '$earlyBirdPrice EVC ≈ ${formatEuro(calculation.earlyBirdTicketValueEur)}',
-                ),
-                _InfoPair(
-                  label: 'Aktueller Kalkulationswert',
-                  value: '1 EVC = ${formatEuro(EventCurrencyConfig.evcToEur(1))}',
+                      '$earlyBirdPrice EVC = ${formatEuro(calculation.earlyBirdTicketValueEur)}',
                 ),
                 _InfoPair(
                   label: 'Early-Bird-Deadline',
@@ -281,185 +276,40 @@ class _CalculationTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionCard(
-            title: 'Übersicht',
-            child: Wrap(
-              spacing: 20,
-              runSpacing: 12,
-              children: [
-                _InfoPair(
-                  label: 'Kalkulationsstatus',
-                  value: calculation.calculationStatus.label,
-                ),
-                _InfoPair(
-                  label: 'Erwartete Teilnehmer',
-                  value: '${calculation.expectedParticipants}',
-                ),
-                _InfoPair(
-                  label: 'Durchschnittlicher Ticketpreis',
-                  value: '${calculation.averageTicketPriceEvc.toStringAsFixed(2)} EVC',
-                ),
-                _InfoPair(
-                  label: 'Durchschnittlicher Ticketwert',
-                  value: formatEuro(calculation.averageTicketValueEur),
-                ),
-                _InfoPair(
-                  label: 'Erwartete Early-Bird-Tickets',
-                  value: '${calculation.expectedEarlyBirdTickets}',
-                ),
-                _InfoPair(
-                  label: 'Erwartete reguläre Tickets',
-                  value: '${calculation.expectedRegularTickets}',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            title: 'Grundkosten',
+            title: 'Kalkulation',
             child: Column(
               children: [
                 _ValueRow(
-                  label: 'Gesamtkosten netto',
-                  value: formatEuro(calculation.currentCostNetEur),
+                  label: 'Ticketpreis',
+                  value:
+                      '${event.anmeldePreise['Normal'] ?? 0} EVC / ${formatEuro(calculation.normalTicketValueEur)}',
                 ),
                 _ValueRow(
-                  label: 'Gesamtkosten brutto',
-                  value: formatEuro(calculation.currentCostGrossEur),
-                ),
-                _ValueRow(
-                  label: 'Sponsoring / Zuschüsse',
-                  value: formatEuro(calculation.sponsorAndGrantTotalEur),
-                ),
-                const Divider(height: 20),
-                ...calculation.costItems.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _ValueRow(
-                          dense: true,
-                          label: '${item.category.label}: ${item.label}',
-                          value: formatEuro(item.grossTotalEur),
-                        ),
-                        if (item.note.trim().isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              item.note,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            title: 'Break-even',
-            child: Column(
-              children: [
-                _ValueRow(
-                  label: 'Grundkosten brutto',
+                  label: 'Grundkosten',
                   value: formatEuro(calculation.baseCostGrossEur),
                 ),
-                _ValueRow(
-                  label: 'Abzüglich Sponsoring / Zuschüsse',
-                  value: formatEuro(calculation.sponsorAndGrantTotalEur),
-                ),
+                if (calculation.sponsorAndGrantTotalEur > 0)
+                  _ValueRow(
+                    label: 'Sponsoring / Zuschuesse',
+                    value: formatEuro(calculation.sponsorAndGrantTotalEur),
+                  ),
                 _ValueRow(
                   label: 'Zu deckender Betrag',
                   value: formatEuro(calculation.amountToCoverEur),
                   emphasize: true,
                 ),
                 _ValueRow(
-                  label: 'Benötigte Teilnehmer bis Break-even',
+                  label: 'Break-even-Teilnehmer',
                   value: '${calculation.breakEvenParticipants}',
-                ),
-                _ValueRow(
-                  label: 'Aktueller Teilnehmerstand',
-                  value: '$currentParticipants',
                 ),
                 _ValueRow(
                   label: 'Fehlende Teilnehmer',
                   value: '$missingParticipants',
                 ),
                 _ValueRow(
-                  label: 'Erwarteter Umsatz bei voller Auslastung',
-                  value: formatEuro(calculation.fullCapacityRevenueEur),
-                ),
-                _ValueRow(
-                  label: 'Umsatz oberhalb Break-even',
-                  value: formatEuro(calculation.revenueAboveBreakEvenEur),
-                ),
-                _ValueRow(
-                  label: 'Variables Upgrade-Budget nach Break-even',
+                  label: 'Upgrade-Budget',
                   value: formatEuro(calculation.upgradeBudgetAfterBreakEvenEur),
-                  emphasize: true,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            title: 'Upgrade-Budget',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ...calculation.upgradeBudgetItems.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _ValueRow(
-                          dense: true,
-                          label: '${item.category.label} · Priorität ${item.priority}',
-                          value: formatEuro(item.estimatedCostEur),
-                        ),
-                        Text(
-                          item.label,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        if (item.note.trim().isNotEmpty)
-                          Text(
-                            item.note,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SectionCard(
-            title: 'Hinweise',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Aktueller Kalkulationswert: 1 EVC = ${formatEuro(EventCurrencyConfig.evcToEur(1))}',
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Nach Erreichen des Break-even kann zusätzlicher Umsatz genutzt werden, um das Event aufzuwerten, Rücklagen zu bilden oder Eventcoins teilweise zu erstatten. Ziel ist ein möglichst hohes Preis-Leistungs-Verhältnis für Gäste.',
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Verteilungsidee: ${calculation.guestValuePercent.toStringAsFixed(0)} % Gästewert, ${calculation.evcRefundPercent.toStringAsFixed(0)} % Eventcoin-Erstattung, ${calculation.reservePercent.toStringAsFixed(0)} % Reserve, ${calculation.organizerMarginPercent.toStringAsFixed(0)} % Veranstalter-Marge.',
-                ),
-                if (calculation.notes.trim().isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    calculation.notes,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
               ],
             ),
           ),
@@ -514,31 +364,33 @@ class _ParticipantsTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _SectionCard(
-            title: 'Teilnehmerliste',
+            title: 'Spaeterer Adminbereich',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Teilnehmerliste später hier öffnen'),
+                const Text(
+                  'Teilnehmerverwaltung spaeter: Ticketstatus, Zahlung, Check-in, Erstattung, Ampelstatus und Notizen.',
+                ),
                 const SizedBox(height: 10),
                 OutlinedButton(
                   onPressed: () {
                     showDialog<void>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Teilnehmer anzeigen'),
+                        title: const Text('Teilnehmerverwaltung'),
                         content: const Text(
-                          'Die Teilnehmerverwaltung wird später als eigener Bereich ergänzt.',
+                          'Die Teilnehmerverwaltung wird spaeter als eigener Bereich ergaenzt.',
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Schließen'),
+                            child: const Text('Schliessen'),
                           ),
                         ],
                       ),
                     );
                   },
-                  child: const Text('Teilnehmer anzeigen'),
+                  child: const Text('Teilnehmer verwalten'),
                 ),
               ],
             ),
@@ -621,13 +473,11 @@ class _ValueRow extends StatelessWidget {
   final String label;
   final String value;
   final bool emphasize;
-  final bool dense;
 
   const _ValueRow({
     required this.label,
     required this.value,
     this.emphasize = false,
-    this.dense = false,
   });
 
   @override
@@ -637,7 +487,7 @@ class _ValueRow extends StatelessWidget {
         : Theme.of(context).textTheme.bodyLarge;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: dense ? 2 : 8),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

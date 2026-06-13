@@ -44,7 +44,7 @@ class _BottomNavigationState extends State<BottomNavigation> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Benutzer',
+            label: 'User',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.location_on),

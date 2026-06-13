@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sprouts_manager/features/admission/admission_mode_screen.dart';
 import 'package:sprouts_manager/features/events/event_management_page.dart';
 import 'package:sprouts_manager/features/locations/presentation/screens/location_management_screen.dart';
+import 'package:sprouts_manager/features/planning/planning_screen.dart';
 import 'package:sprouts_manager/pages/statistics_page.dart';
 import 'package:sprouts_manager/pages/user_management_page.dart';
 
@@ -18,6 +19,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
+      const PlanningScreen(),
       const EventManagementPage(),
       const AdmissionModeScreen(),
       const UserManagementPage(),
@@ -26,9 +28,10 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
     ];
 
     final labels = <String>[
-      'Eventplanung',
+      'Planung',
+      'Events',
       'Einlass',
-      'Teilnehmer',
+      'User',
       'Locations',
       'Statistiken',
     ];
@@ -45,8 +48,12 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
             labelType: NavigationRailLabelType.all,
             destinations: const [
               NavigationRailDestination(
+                icon: Icon(Icons.edit_calendar),
+                label: Text('Planung'),
+              ),
+              NavigationRailDestination(
                 icon: Icon(Icons.event),
-                label: Text('Eventplanung'),
+                label: Text('Events'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.confirmation_number),
@@ -54,7 +61,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.groups),
-                label: Text('Teilnehmer'),
+                label: Text('User'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.location_on),
