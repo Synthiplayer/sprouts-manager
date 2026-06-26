@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,9 +8,14 @@ import 'package:sprouts_manager/core/event_currency_config.dart';
 import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
 import 'package:sprouts_manager/features/events/event_category_ui.dart';
 
+part 'widgets/planning_artists_tab.dart';
+part 'widgets/planning_costs_tab.dart';
+
 enum PlanningWorkspaceTab {
   main,
   scenarios,
+  costs,
+  artists,
   tickets,
   sponsoring,
   breakEven,
@@ -116,6 +123,8 @@ class PlanningScreen extends StatefulWidget {
 }
 
 class _PlanningScreenState extends State<PlanningScreen> {
+  static const String _sandboxFileName = 'planning_sandbox_state.json';
+
   final List<PlanningDraft> _drafts = PlanningDraft.sandboxDrafts;
   final Map<String, Map<PlanningScenarioOption, bool>> _draftOptionOverrides = {};
   final Map<String, double> _scenarioOccupancyOverrides = {};
@@ -123,14 +132,18 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, int> _staffingPeopleOverrides = {};
   final Map<String, double> _staffingHoursOverrides = {};
   final Map<String, double> _staffingRateOverrides = {};
+  final Map<String, double> _scenarioVariableCostOverrides = {};
+  final Map<String, int> _scenarioVariableCostThresholdOverrides = {};
   final Map<String, double> _normalPriceMarkupOverrides = {};
   final Map<String, double> _leakagePercentOverrides = {};
   final Map<String, double> _reservePercentOverrides = {};
   final Map<String, double> _organizerSharePercentOverrides = {};
   final Map<String, double> _partnerSharePercentOverrides = {};
   final Map<String, String> _selectedScenarioOverrides = {};
+  final Map<String, List<PlanningArtistCostItem>> _artistCostItemOverrides = {};
   String? _selectedDraftId;
   PlanningWorkspaceTab _tab = PlanningWorkspaceTab.main;
+  bool _isLoadingSandboxState = true;
 
   @override
   void initState() {
@@ -138,6 +151,265 @@ class _PlanningScreenState extends State<PlanningScreen> {
     if (_drafts.isNotEmpty) {
       _selectedDraftId = _drafts.first.id;
     }
+    _loadPlanningSandboxState();
+  }
+
+  Future<File> _planningSandboxFile() async {
+    final directory = _planningSandboxDirectory();
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+    return File('${directory.path}${Platform.pathSeparator}$_sandboxFileName');
+  }
+
+  Directory _planningSandboxDirectory() {
+    if (Platform.isWindows) {
+      final appData = Platform.environment['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        return Directory('$appData${Platform.pathSeparator}SproutsManager');
+      }
+    }
+
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    if (home != null && home.isNotEmpty) {
+      return Directory('$home${Platform.pathSeparator}.sprouts_manager');
+    }
+
+    return Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}sprouts_manager',
+    );
+  }
+
+  Future<void> _loadPlanningSandboxState() async {
+    try {
+      final file = await _planningSandboxFile();
+      if (!file.existsSync()) {
+        if (mounted) {
+          setState(() {
+            _isLoadingSandboxState = false;
+          });
+        }
+        return;
+      }
+
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map<String, dynamic>) {
+        if (mounted) {
+          setState(() {
+            _isLoadingSandboxState = false;
+          });
+        }
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _restorePlanningSandboxState(decoded);
+        _isLoadingSandboxState = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingSandboxState = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _savePlanningSandboxState() async {
+    if (_isLoadingSandboxState) {
+      return;
+    }
+
+    try {
+      final file = await _planningSandboxFile();
+      await file.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(_planningSandboxStateJson()),
+      );
+    } catch (_) {
+      // Sandbox persistence must never block planning UI work.
+    }
+  }
+
+  Map<String, dynamic> _planningSandboxStateJson() {
+    return {
+      'selectedDraftId': _selectedDraftId,
+      'selectedScenarioOverrides': _selectedScenarioOverrides,
+      'scenarioOccupancyOverrides': _scenarioOccupancyOverrides,
+      'scenarioVariableCostOverrides': _scenarioVariableCostOverrides,
+      'scenarioVariableCostThresholdOverrides':
+          _scenarioVariableCostThresholdOverrides,
+      'staffingItemOverrides': _staffingItemOverrides,
+      'staffingPeopleOverrides': _staffingPeopleOverrides,
+      'staffingHoursOverrides': _staffingHoursOverrides,
+      'staffingRateOverrides': _staffingRateOverrides,
+      'normalPriceMarkupOverrides': _normalPriceMarkupOverrides,
+      'leakagePercentOverrides': _leakagePercentOverrides,
+      'reservePercentOverrides': _reservePercentOverrides,
+      'organizerSharePercentOverrides': _organizerSharePercentOverrides,
+      'partnerSharePercentOverrides': _partnerSharePercentOverrides,
+      'draftOptionOverrides': _draftOptionOverrides.map(
+        (draftId, options) => MapEntry(
+          draftId,
+          options.map((option, value) => MapEntry(option.name, value)),
+        ),
+      ),
+      'artistCostItemOverrides': _artistCostItemOverrides.map(
+        (draftId, items) => MapEntry(
+          draftId,
+          items.map((item) => item.toJson()).toList(),
+        ),
+      ),
+    };
+  }
+
+  void _restorePlanningSandboxState(Map<String, dynamic> json) {
+    final selectedDraftId = json['selectedDraftId'];
+    if (selectedDraftId is String &&
+        _drafts.any((draft) => draft.id == selectedDraftId)) {
+      _selectedDraftId = selectedDraftId;
+    }
+
+    _selectedScenarioOverrides
+      ..clear()
+      ..addAll(_stringMap(json['selectedScenarioOverrides']));
+    _scenarioOccupancyOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['scenarioOccupancyOverrides']));
+    _scenarioVariableCostOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['scenarioVariableCostOverrides']));
+    _scenarioVariableCostThresholdOverrides
+      ..clear()
+      ..addAll(_intMap(json['scenarioVariableCostThresholdOverrides']));
+    _staffingItemOverrides
+      ..clear()
+      ..addAll(_boolMap(json['staffingItemOverrides']));
+    _staffingPeopleOverrides
+      ..clear()
+      ..addAll(_intMap(json['staffingPeopleOverrides']));
+    _staffingHoursOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['staffingHoursOverrides']));
+    _staffingRateOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['staffingRateOverrides']));
+    _normalPriceMarkupOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['normalPriceMarkupOverrides']));
+    _leakagePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['leakagePercentOverrides']));
+    _reservePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['reservePercentOverrides']));
+    _organizerSharePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['organizerSharePercentOverrides']));
+    _partnerSharePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['partnerSharePercentOverrides']));
+
+    _draftOptionOverrides
+      ..clear()
+      ..addAll(_draftOptionMap(json['draftOptionOverrides']));
+    _artistCostItemOverrides
+      ..clear()
+      ..addAll(_artistCostItemMap(json['artistCostItemOverrides']));
+  }
+
+  Map<String, String> _stringMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map(
+      (key, entry) => MapEntry(key.toString(), entry.toString()),
+    );
+  }
+
+  Map<String, double> _doubleMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map((key, entry) {
+      final parsed = entry is num ? entry.toDouble() : double.tryParse('$entry');
+      return MapEntry(key.toString(), parsed ?? 0);
+    });
+  }
+
+  Map<String, int> _intMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map((key, entry) {
+      final parsed = entry is num ? entry.toInt() : int.tryParse('$entry');
+      return MapEntry(key.toString(), parsed ?? 0);
+    });
+  }
+
+  Map<String, bool> _boolMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map((key, entry) => MapEntry(key.toString(), entry == true));
+  }
+
+  Map<String, Map<PlanningScenarioOption, bool>> _draftOptionMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+
+    final result = <String, Map<PlanningScenarioOption, bool>>{};
+    for (final draftEntry in value.entries) {
+      final options = draftEntry.value;
+      if (options is! Map) {
+        continue;
+      }
+      final restoredOptions = <PlanningScenarioOption, bool>{};
+      for (final optionEntry in options.entries) {
+        final option = _planningScenarioOptionByName(optionEntry.key.toString());
+        if (option == null) {
+          continue;
+        }
+        restoredOptions[option] = optionEntry.value == true;
+      }
+      result[draftEntry.key.toString()] = restoredOptions;
+    }
+    return result;
+  }
+
+  PlanningScenarioOption? _planningScenarioOptionByName(String name) {
+    for (final option in PlanningScenarioOption.values) {
+      if (option.name == name) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  Map<String, List<PlanningArtistCostItem>> _artistCostItemMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+
+    final result = <String, List<PlanningArtistCostItem>>{};
+    for (final draftEntry in value.entries) {
+      final items = draftEntry.value;
+      if (items is! List) {
+        continue;
+      }
+      result[draftEntry.key.toString()] = [
+        for (final item in items)
+          if (item is Map)
+            PlanningArtistCostItem.fromJson(
+              item.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+      ];
+    }
+    return result;
   }
 
   @override
@@ -277,6 +549,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                   _selectedDraftId = draft.id;
                   _tab = PlanningWorkspaceTab.main;
                 });
+                _savePlanningSandboxState();
               },
               child: Padding(
                 padding: const EdgeInsets.all(14),
@@ -375,6 +648,14 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 label: Text('Szenarien'),
               ),
               ButtonSegment(
+                value: PlanningWorkspaceTab.costs,
+                label: Text('Kosten'),
+              ),
+              ButtonSegment(
+                value: PlanningWorkspaceTab.artists,
+                label: Text('Kuenstler'),
+              ),
+              ButtonSegment(
                 value: PlanningWorkspaceTab.tickets,
                 label: Text('Tickets'),
               ),
@@ -423,6 +704,25 @@ class _PlanningScreenState extends State<PlanningScreen> {
           switch (_tab) {
             PlanningWorkspaceTab.main => _buildMainTab(context, draft),
             PlanningWorkspaceTab.scenarios => _buildScenariosTab(context, draft),
+            PlanningWorkspaceTab.costs => PlanningCostsTab(
+                draft: draft,
+                scenario: _selectedScenario(draft),
+                items: _costOverviewItemsForScenario(
+                  draft,
+                  _selectedScenario(draft),
+                ),
+              ),
+            PlanningWorkspaceTab.artists => PlanningArtistsTab(
+                draft: draft,
+                scenario: _selectedScenario(draft),
+                items: _artistCostItemsForDraft(draft),
+                onItemsChanged: (items) {
+                  setState(() {
+                    _artistCostItemOverrides[draft.id] = items;
+                  });
+                  _savePlanningSandboxState();
+                },
+              ),
             PlanningWorkspaceTab.tickets => _buildTicketsTab(context, draft),
             PlanningWorkspaceTab.sponsoring => _buildSponsoringTab(context, draft),
             PlanningWorkspaceTab.breakEven => _buildBreakEvenTab(context, draft),
@@ -776,6 +1076,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 setState(() {
                   _selectedScenarioOverrides[draft.id] = scenario.id;
                 });
+                _savePlanningSandboxState();
               },
               child: Container(
                 padding: const EdgeInsets.all(10),
@@ -832,11 +1133,12 @@ class _PlanningScreenState extends State<PlanningScreen> {
                         onPressed: isSelected
                             ? null
                             : () {
-                                setState(() {
-                                  _selectedScenarioOverrides[draft.id] =
-                                      scenario.id;
-                                });
-                              },
+                              setState(() {
+                                _selectedScenarioOverrides[draft.id] =
+                                    scenario.id;
+                              });
+                              _savePlanningSandboxState();
+                            },
                         child: Text(isSelected ? 'Aktiv' : 'Waehlen'),
                       ),
                     ),
@@ -845,7 +1147,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1137,6 +1439,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 _scenarioOccupancyOverrides[scenario.id] = value;
                 _selectedScenarioOverrides[draft.id] = scenario.id;
               });
+              _savePlanningSandboxState();
             },
           ),
         ),
@@ -1273,6 +1576,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 setState(() {
                   _selectedScenarioOverrides[draft.id] = scenario.id;
                 });
+                _savePlanningSandboxState();
               },
               child: Container(
                 decoration: BoxDecoration(
@@ -1382,8 +1686,65 @@ class _PlanningScreenState extends State<PlanningScreen> {
                         setState(() {
                           _scenarioOccupancyOverrides[scenario.id] = value;
                         });
+                        _savePlanningSandboxState();
                       },
                     ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        SizedBox(
+                          width: 220,
+                          child: TextFormField(
+                            key: ValueKey('${scenario.id}-variable-threshold'),
+                            initialValue:
+                                '${_scenarioVariableCostThreshold(scenario)}',
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Variable Kosten ab Personen',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (value) {
+                              _updateScenarioVariableCostThreshold(
+                                scenario,
+                                value,
+                              );
+                            },
+                            onEditingComplete: () => setState(() {}),
+                            onFieldSubmitted: (_) => setState(() {}),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 220,
+                          child: TextFormField(
+                            key: ValueKey('${scenario.id}-variable-cost'),
+                            initialValue: _editableMoneyValue(
+                              _scenarioVariableCostPerAttendee(scenario),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Kosten je Mehrgast',
+                              suffixText: 'EUR',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onChanged: (value) {
+                              _updateScenarioVariableCostPerAttendee(
+                                scenario,
+                                value,
+                              );
+                            },
+                            onEditingComplete: () => setState(() {}),
+                            onFieldSubmitted: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     _valueRow(
                       'Fixe Grundkosten',
                       formatEuro(_scenarioBaseCostsEur(draft, scenario)),
@@ -1877,6 +2238,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
   ) {
     final options = _draftOptionOverrides.putIfAbsent(draft.id, () => {});
     options[option] = value;
+    _savePlanningSandboxState();
   }
 
   bool _isStaffingItemEnabled(PlanningStaffingItem item) {
@@ -1885,6 +2247,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
 
   void _setStaffingItemEnabled(PlanningStaffingItem item, bool value) {
     _staffingItemOverrides[item.id] = value;
+    _savePlanningSandboxState();
   }
 
   List<PlanningStaffingItem> _visibleStaffingItems(
@@ -1960,6 +2323,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _staffingPeopleOverrides[item.id] = parsed;
+    _savePlanningSandboxState();
   }
 
   void _updateStaffingHours(PlanningStaffingItem item, String value) {
@@ -1968,6 +2332,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _staffingHoursOverrides[item.id] = parsed;
+    _savePlanningSandboxState();
   }
 
   void _updateStaffingRate(PlanningStaffingItem item, String value) {
@@ -1976,6 +2341,31 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _staffingRateOverrides[item.id] = parsed;
+    _savePlanningSandboxState();
+  }
+
+  void _updateScenarioVariableCostPerAttendee(
+    PlanningScenario scenario,
+    String value,
+  ) {
+    final parsed = _parsePlanningNumber(value);
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+    _scenarioVariableCostOverrides[scenario.id] = parsed;
+    _savePlanningSandboxState();
+  }
+
+  void _updateScenarioVariableCostThreshold(
+    PlanningScenario scenario,
+    String value,
+  ) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+    _scenarioVariableCostThresholdOverrides[scenario.id] = parsed;
+    _savePlanningSandboxState();
   }
 
   double? _parsePlanningNumber(String value) {
@@ -2009,6 +2399,128 @@ class _PlanningScreenState extends State<PlanningScreen> {
     return max(1, (scenario.capacity * _scenarioOccupancy(scenario)).round());
   }
 
+  List<PlanningArtistCostItem> _artistCostItemsForDraft(PlanningDraft draft) {
+    return _artistCostItemOverrides[draft.id] ?? draft.artistCostItems;
+  }
+
+  double _artistCostTotalEurForDraft(PlanningDraft draft) {
+    return _artistCostItemsForDraft(draft).fold<double>(
+      0,
+      (total, item) => total + item.grossAmountEur,
+    );
+  }
+
+  double _artistCostForScenario(PlanningDraft draft, PlanningScenario scenario) {
+    final plannedArtistCosts = _artistCostTotalEurForDraft(draft);
+    if (plannedArtistCosts <= 0) {
+      return scenario.artistCostEur;
+    }
+    return plannedArtistCosts;
+  }
+
+  List<PlanningCostOverviewItem> _costOverviewItemsForScenario(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final items = <PlanningCostOverviewItem>[
+      PlanningCostOverviewItem(
+        label: 'Location / Halle',
+        amountEur: scenario.baseRentEur,
+        source: scenario.locationName,
+      ),
+      PlanningCostOverviewItem(
+        label: 'Kuenstler',
+        amountEur: _artistCostForScenario(draft, scenario),
+        source: _artistCostItemsForDraft(draft).isEmpty
+            ? 'Szenario-Platzhalter'
+            : 'Kuenstler-Tab',
+      ),
+      PlanningCostOverviewItem(
+        label: 'Technik',
+        amountEur: scenario.technologyCostEur,
+        source: 'Szenario',
+      ),
+      PlanningCostOverviewItem(
+        label: 'Security',
+        amountEur: _visibleStaffingCostByCategory(
+          draft,
+          scenario,
+          PlanningStaffingCategory.security,
+        ),
+        source: 'aktive Security-Bloecke',
+      ),
+      PlanningCostOverviewItem(
+        label: 'Personal',
+        amountEur: _visibleStaffingCostByCategory(
+          draft,
+          scenario,
+          PlanningStaffingCategory.staff,
+        ),
+        source: 'aktive Personal-Bloecke',
+      ),
+      PlanningCostOverviewItem(
+        label: 'Sanitaeter',
+        amountEur: _visibleStaffingCostByCategory(
+          draft,
+          scenario,
+          PlanningStaffingCategory.medical,
+        ),
+        source: 'aktive Sanitaeter-Bloecke',
+      ),
+      PlanningCostOverviewItem(
+        label: 'GEMA',
+        amountEur: scenario.gemaCostEur,
+        source: 'Szenario / Location',
+      ),
+      PlanningCostOverviewItem(
+        label: 'Werbung',
+        amountEur: scenario.marketingCostEur,
+        source: 'Szenario',
+      ),
+      PlanningCostOverviewItem(
+        label: 'Versicherung',
+        amountEur: scenario.insuranceCostEur,
+        source: 'Szenario',
+      ),
+      PlanningCostOverviewItem(
+        label: 'Veranstalterarbeit',
+        amountEur: scenario.organizerWorkEur,
+        source: 'Planung',
+      ),
+    ];
+
+    if (_isOptionEnabled(draft, PlanningScenarioOption.toilets)) {
+      items.add(
+        PlanningCostOverviewItem(
+          label: 'Toiletten',
+          amountEur: scenario.toiletCostEur,
+          source: 'aktiver Chip',
+        ),
+      );
+    }
+
+    if (_isOptionEnabled(draft, PlanningScenarioOption.barriers)) {
+      items.add(
+        PlanningCostOverviewItem(
+          label: 'Absperrgitter',
+          amountEur: scenario.barriersCostEur,
+          source: 'aktiver Chip',
+        ),
+      );
+    }
+
+    items.add(
+      PlanningCostOverviewItem(
+        label: 'Variable Wachstumskosten',
+        amountEur: _scenarioVariableCostsEur(draft, scenario),
+        source: 'Auslastung / Szenario',
+        isVariable: true,
+      ),
+    );
+
+    return items.where((item) => item.amountEur > 0).toList();
+  }
+
   double _staffingCostForCategory(
     PlanningScenario scenario,
     PlanningStaffingCategory category,
@@ -2021,7 +2533,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
 
   double _scenarioBaseCostsEur(PlanningDraft draft, PlanningScenario scenario) {
     var total = scenario.baseRentEur +
-        scenario.artistCostEur +
+        _artistCostForScenario(draft, scenario) +
         scenario.technologyCostEur +
         scenario.gemaCostEur +
         scenario.insuranceCostEur +
@@ -2056,20 +2568,31 @@ class _PlanningScreenState extends State<PlanningScreen> {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    if (scenario.variableCostPerAttendeeEur <= 0) {
+    final costPerAttendee = _scenarioVariableCostPerAttendee(scenario);
+    if (costPerAttendee <= 0) {
       return 0;
     }
 
-    final threshold = scenario.variableCostThresholdAttendees > 0
-        ? scenario.variableCostThresholdAttendees
-        : (scenario.capacity * 0.5).round();
+    final threshold = _scenarioVariableCostThreshold(scenario);
     final variableAttendees = _scenarioTargetAttendees(scenario) - threshold;
 
     if (variableAttendees <= 0) {
       return 0;
     }
 
-    return variableAttendees * scenario.variableCostPerAttendeeEur;
+    return variableAttendees * costPerAttendee;
+  }
+
+  double _scenarioVariableCostPerAttendee(PlanningScenario scenario) {
+    return _scenarioVariableCostOverrides[scenario.id] ??
+        scenario.variableCostPerAttendeeEur;
+  }
+
+  int _scenarioVariableCostThreshold(PlanningScenario scenario) {
+    return _scenarioVariableCostThresholdOverrides[scenario.id] ??
+        (scenario.variableCostThresholdAttendees > 0
+            ? scenario.variableCostThresholdAttendees
+            : (scenario.capacity * 0.5).round());
   }
 
   double _scenarioEventCostsEur(PlanningDraft draft, PlanningScenario scenario) {
@@ -2154,6 +2677,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _normalPriceMarkupOverrides[draft.id] = parsed / 100;
+    _savePlanningSandboxState();
   }
 
   void _updateLeakagePercent(PlanningDraft draft, String value) {
@@ -2162,6 +2686,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _leakagePercentOverrides[draft.id] = parsed / 100;
+    _savePlanningSandboxState();
   }
 
   void _updateReservePercent(PlanningDraft draft, String value) {
@@ -2170,6 +2695,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _reservePercentOverrides[draft.id] = parsed / 100;
+    _savePlanningSandboxState();
   }
 
   void _updateOrganizerSharePercent(PlanningDraft draft, String value) {
@@ -2178,6 +2704,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _organizerSharePercentOverrides[draft.id] = parsed / 100;
+    _savePlanningSandboxState();
   }
 
   void _updatePartnerSharePercent(PlanningDraft draft, String value) {
@@ -2186,6 +2713,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
       return;
     }
     _partnerSharePercentOverrides[draft.id] = parsed / 100;
+    _savePlanningSandboxState();
   }
 
   double _roundUpToFullEuro(double value) {
@@ -2339,6 +2867,7 @@ class PlanningDraft {
   final double fixedSponsorAmountEur;
   final double supporterAmountEur;
   final double grantAmountEur;
+  final List<PlanningArtistCostItem> artistCostItems;
   final List<PlanningScenario> scenarios;
   final List<PlanningPartnerProfile> partners;
   final List<PlanningUpgradeStage> upgradeStages;
@@ -2372,6 +2901,7 @@ class PlanningDraft {
     required this.fixedSponsorAmountEur,
     required this.supporterAmountEur,
     required this.grantAmountEur,
+    this.artistCostItems = const [],
     required this.scenarios,
     required this.partners,
     required this.upgradeStages,
@@ -2440,7 +2970,7 @@ class PlanningDraft {
           capacity: 500,
           targetOccupancyPercent: 0.5,
           baseRentEur: 3200,
-          artistCostEur: 8500,
+          artistCostEur: 0,
           technologyCostEur: 2600,
           securityCostEur: 1400,
           medicalCostEur: 600,
@@ -2492,7 +3022,7 @@ class PlanningDraft {
           capacity: 850,
           targetOccupancyPercent: 0.5,
           baseRentEur: 6400,
-          artistCostEur: 8500,
+          artistCostEur: 0,
           technologyCostEur: 3800,
           securityCostEur: 2200,
           medicalCostEur: 900,
@@ -2555,7 +3085,7 @@ class PlanningDraft {
           capacity: 2000,
           targetOccupancyPercent: 0.5,
           baseRentEur: 9800,
-          artistCostEur: 8500,
+          artistCostEur: 0,
           technologyCostEur: 6200,
           securityCostEur: 4200,
           medicalCostEur: 1600,
@@ -3194,6 +3724,123 @@ class PlanningDraft {
       ],
     ),
   ];
+}
+
+enum PlanningArtistCostType {
+  mainActFee,
+  supportActFee,
+  djFee,
+  travel,
+  hotel,
+  backstage,
+  catering,
+  shuttle,
+  other,
+}
+
+extension PlanningArtistCostTypeX on PlanningArtistCostType {
+  String get label {
+    switch (this) {
+      case PlanningArtistCostType.mainActFee:
+        return 'Hauptact';
+      case PlanningArtistCostType.supportActFee:
+        return 'Support';
+      case PlanningArtistCostType.djFee:
+        return 'DJ';
+      case PlanningArtistCostType.travel:
+        return 'Reise';
+      case PlanningArtistCostType.hotel:
+        return 'Hotel';
+      case PlanningArtistCostType.backstage:
+        return 'Backstage';
+      case PlanningArtistCostType.catering:
+        return 'Catering';
+      case PlanningArtistCostType.shuttle:
+        return 'Shuttle';
+      case PlanningArtistCostType.other:
+        return 'Sonstiges';
+    }
+  }
+}
+
+class PlanningArtistCostItem {
+  final String id;
+  final String label;
+  final PlanningArtistCostType type;
+  final double grossAmountEur;
+  final String note;
+
+  const PlanningArtistCostItem({
+    required this.id,
+    required this.label,
+    required this.type,
+    required this.grossAmountEur,
+    this.note = '',
+  });
+
+  PlanningArtistCostItem copyWith({
+    String? label,
+    PlanningArtistCostType? type,
+    double? grossAmountEur,
+    String? note,
+  }) {
+    return PlanningArtistCostItem(
+      id: id,
+      label: label ?? this.label,
+      type: type ?? this.type,
+      grossAmountEur: grossAmountEur ?? this.grossAmountEur,
+      note: note ?? this.note,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'label': label,
+      'type': type.name,
+      'grossAmountEur': grossAmountEur,
+      'note': note,
+    };
+  }
+
+  factory PlanningArtistCostItem.fromJson(Map<String, dynamic> json) {
+    return PlanningArtistCostItem(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      type: _artistCostTypeByName(json['type']?.toString()) ??
+          PlanningArtistCostType.mainActFee,
+      grossAmountEur: json['grossAmountEur'] is num
+          ? (json['grossAmountEur'] as num).toDouble()
+          : double.tryParse('${json['grossAmountEur']}') ?? 0,
+      note: json['note']?.toString() ?? '',
+    );
+  }
+}
+
+PlanningArtistCostType? _artistCostTypeByName(String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final type in PlanningArtistCostType.values) {
+    if (type.name == name) {
+      return type;
+    }
+  }
+  return null;
+}
+
+class PlanningCostOverviewItem {
+  final String label;
+  final double amountEur;
+  final String source;
+  final bool isVariable;
+
+  const PlanningCostOverviewItem({
+    required this.label,
+    required this.amountEur,
+    required this.source,
+    this.isVariable = false,
+  });
 }
 
 class PlanningScenario {
