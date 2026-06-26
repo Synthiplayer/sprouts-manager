@@ -123,6 +123,12 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, int> _staffingPeopleOverrides = {};
   final Map<String, double> _staffingHoursOverrides = {};
   final Map<String, double> _staffingRateOverrides = {};
+  final Map<String, double> _normalPriceMarkupOverrides = {};
+  final Map<String, double> _leakagePercentOverrides = {};
+  final Map<String, double> _reservePercentOverrides = {};
+  final Map<String, double> _organizerSharePercentOverrides = {};
+  final Map<String, double> _partnerSharePercentOverrides = {};
+  final Map<String, String> _selectedScenarioOverrides = {};
   String? _selectedDraftId;
   PlanningWorkspaceTab _tab = PlanningWorkspaceTab.main;
 
@@ -302,7 +308,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Empfohlen: ${recommendedScenario.name}',
+                      'Bester Preis: ${recommendedScenario.name}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     Text(
@@ -322,7 +328,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Aktueller Plan: ${draft.normalPriceEvc} EVC / ${formatEuro(draft.normalPriceEur)}',
+                      'Normalpreis danach: ${_normalPriceEurForScenario(draft, recommendedScenario).round()} EVC / ${formatEuro(_normalPriceEurForScenario(draft, recommendedScenario))}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -427,8 +433,10 @@ class _PlanningScreenState extends State<PlanningScreen> {
   }
 
   Widget _buildMainTab(BuildContext context, PlanningDraft draft) {
-    final scenario = _recommendedScenario(draft);
+    final scenario = _selectedScenario(draft);
     final visibleStaffingItems = _visibleStaffingItems(draft, scenario);
+    final earlyBirdPrice = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
+    final normalPrice = _normalPriceEurForScenario(draft, scenario);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,18 +451,18 @@ class _PlanningScreenState extends State<PlanningScreen> {
               _valueRow('Kategorie', draft.category.label),
               _valueRow('Format', draft.format),
               _valueRow('Zielgruppe', draft.targetAudience),
-              _valueRow('Empfohlenes Szenario', '${scenario.name} - ${scenario.locationName}'),
+              _valueRow('Ausgewaehltes Szenario', '${scenario.name} - ${scenario.locationName}'),
               _valueRow(
                 'Noetiger Early-Bird-Preis bei Zielauslastung',
-                formatEuro(_requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario)),
+                formatEuro(earlyBirdPrice),
               ),
               _valueRow(
-                'Benoetigte Early-Bird-Tickets bis Break-even',
-                '${_breakEvenEarlyBirdTickets(draft, scenario)}',
+                'Zielteilnehmer fuer Break-even',
+                '${_scenarioTargetAttendees(scenario)}',
               ),
               _valueRow(
                 'Normalpreis nach Break-even',
-                '${draft.normalPriceEvc} EVC / ${formatEuro(draft.normalPriceEur)}',
+                '${normalPrice.round()} EVC / ${formatEuro(normalPrice)}',
               ),
               _valueRow(
                 'Gesamte Unterstuetzung',
@@ -466,6 +474,18 @@ class _PlanningScreenState extends State<PlanningScreen> {
               ),
               _valueRow('Sachlage', _mainDecisionSummary(draft)),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _sectionCard(
+          context,
+          title: 'Main / Kalkulationsabschluss',
+          child: _buildCalculationMainOverview(
+            context,
+            draft,
+            scenario,
+            earlyBirdPrice: earlyBirdPrice,
+            normalPrice: normalPrice,
           ),
         ),
         const SizedBox(height: 12),
@@ -713,9 +733,521 @@ class _PlanningScreenState extends State<PlanningScreen> {
     );
   }
 
+  Widget _buildScenarioComparison(BuildContext context, PlanningDraft draft) {
+    final selectedScenario = _selectedScenario(draft);
+
+    return _scenarioComparisonContent(context, draft, selectedScenario);
+  }
+
+  Widget _scenarioComparisonContent(
+    BuildContext context,
+    PlanningDraft draft,
+    PlanningScenario selectedScenario,
+  ) {
+    final headerStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w700,
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+          child: Row(
+            children: [
+              Expanded(flex: 2, child: Text('Szenario', style: headerStyle)),
+              Expanded(child: Text('Kapazitaet', style: headerStyle)),
+              Expanded(child: Text('Auslastung', style: headerStyle)),
+              Expanded(child: Text('Besucher', style: headerStyle)),
+              Expanded(child: Text('Early-Bird', style: headerStyle)),
+              Expanded(child: Text('Var. Kosten', style: headerStyle)),
+              Expanded(child: Text('Status', style: headerStyle)),
+              const SizedBox(width: 112),
+            ],
+          ),
+        ),
+        ...draft.scenarios.map((scenario) {
+          final isSelected = scenario.id == selectedScenario.id;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                setState(() {
+                  _selectedScenarioOverrides[draft.id] = scenario.id;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: isSelected
+                      ? draft.category.color.withValues(alpha: 0.08)
+                      : null,
+                  border: Border.all(
+                    color: isSelected
+                        ? draft.category.color
+                        : Theme.of(context).dividerColor,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        scenario.name,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Expanded(child: Text('${scenario.capacity}')),
+                    Expanded(
+                      child: Text(
+                        '${(_scenarioOccupancy(scenario) * 100).round()} %',
+                      ),
+                    ),
+                    Expanded(
+                      child: Text('${_scenarioTargetAttendees(scenario)}'),
+                    ),
+                    Expanded(
+                      child: Text(
+                        formatEuro(
+                          _requiredEarlyBirdPriceAtTargetOccupancy(
+                            draft,
+                            scenario,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        formatEuro(_scenarioVariableCostsEur(draft, scenario)),
+                      ),
+                    ),
+                    Expanded(child: Text(_scenarioPriceLabel(draft, scenario))),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 104,
+                      child: OutlinedButton(
+                        onPressed: isSelected
+                            ? null
+                            : () {
+                                setState(() {
+                                  _selectedScenarioOverrides[draft.id] =
+                                      scenario.id;
+                                });
+                              },
+                        child: Text(isSelected ? 'Aktiv' : 'Waehlen'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildCalculationMainOverview(
+    BuildContext context,
+    PlanningDraft draft,
+    PlanningScenario scenario, {
+    required double earlyBirdPrice,
+    required double normalPrice,
+  }) {
+    final attendees = _scenarioTargetAttendees(scenario);
+    final fixedEventCosts = _scenarioBaseCostsEur(draft, scenario);
+    final variableEventCosts = _scenarioVariableCostsEur(draft, scenario);
+    final totalEventCosts = _scenarioEventCostsEur(draft, scenario);
+    final grossTicketsBeforeEvent = attendees * earlyBirdPrice;
+    final totalIncomeBeforeEvent =
+        grossTicketsBeforeEvent + draft.totalSupportEur;
+    final organizerSharePercent = _organizerSharePercent(draft);
+    final partnerSharePercent = _partnerSharePercent(draft);
+    final totalSharePercent = organizerSharePercent + partnerSharePercent;
+    final organizerShareAmount = totalIncomeBeforeEvent * organizerSharePercent;
+    final partnerShareAmount = totalIncomeBeforeEvent * partnerSharePercent;
+    final totalShareAmount = organizerShareAmount + partnerShareAmount;
+    final leakagePercent = _leakagePercent(draft);
+    final reservePercent = _reservePercent(draft);
+    final leakageAmount = totalIncomeBeforeEvent * leakagePercent;
+    final reserveAmount = totalIncomeBeforeEvent * reservePercent;
+    final totalDeductions =
+        totalShareAmount + leakageAmount + reserveAmount;
+    final availableEventBudget =
+        totalIncomeBeforeEvent - totalDeductions;
+    final normalPhaseGross = _normalPhaseGrossSurplusAtTarget(draft, scenario);
+    final organizerAfterBreakEven =
+        _normalTicketsAfterBreakEvenAtTarget(draft, scenario) *
+            _organizerMarginPerNormalTicketAfterBreakEven(draft, scenario);
+    final featureBudget = _featureBudgetAtTargetAfterBreakEven(draft, scenario);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _breakEvenWideBlock(
+          context,
+          title: 'Szenariovergleich',
+          child: _scenarioComparisonContent(context, draft, scenario),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _breakEvenOverviewBlock(
+              context,
+              title: 'Projekt / Main',
+              rows: [
+                ('Projekt', draft.title),
+                ('Szenario', scenario.name),
+                ('Kapazitaet', '${scenario.capacity}'),
+                (
+                  'Auslastung',
+                  '${(_scenarioOccupancy(scenario) * 100).round()} %',
+                ),
+                ('Besucher', '$attendees'),
+                (
+                  'Early-Bird',
+                  '${earlyBirdPrice.round()} EVC / ${formatEuro(earlyBirdPrice)}',
+                ),
+                (
+                  'Normalpreis',
+                  '${normalPrice.round()} EVC / ${formatEuro(normalPrice)}',
+                ),
+              ],
+              footer: _compactOccupancySlider(draft, scenario),
+            ),
+            _breakEvenOverviewBlock(
+              context,
+              title: 'Einnahmen vor Veranstaltung',
+              rows: [
+                ('Tickets', formatEuro(grossTicketsBeforeEvent)),
+                ('Sponsoring', formatEuro(draft.fixedSponsorAmountEur)),
+                ('Unterstuetzer', formatEuro(draft.supporterAmountEur)),
+                ('Foerderung', formatEuro(draft.grantAmountEur)),
+                ('Summe Einnahmen', formatEuro(totalIncomeBeforeEvent)),
+              ],
+              emphasizeLast: true,
+            ),
+            _editablePercentageBlock(
+              context,
+              title: 'Abzuege vor Eventfinanzierung',
+              rows: [
+                (
+                  'Veranstaltergewinn',
+                  _percentField(
+                    initialValue: _editablePercentValue(organizerSharePercent),
+                    onChangedValue: (value) => _updateOrganizerSharePercent(draft, value),
+                  ),
+                  formatEuro(organizerShareAmount),
+                ),
+                (
+                  'Partner',
+                  _percentField(
+                    initialValue: _editablePercentValue(partnerSharePercent),
+                    onChangedValue: (value) => _updatePartnerSharePercent(draft, value),
+                  ),
+                  formatEuro(partnerShareAmount),
+                ),
+                (
+                  'Risiko / Leckage',
+                  _percentField(
+                    initialValue: _editablePercentValue(leakagePercent),
+                    onChangedValue: (value) => _updateLeakagePercent(draft, value),
+                  ),
+                  formatEuro(leakageAmount),
+                ),
+                (
+                  'Reserve',
+                  _percentField(
+                    initialValue: _editablePercentValue(reservePercent),
+                    onChangedValue: (value) => _updateReservePercent(draft, value),
+                  ),
+                  formatEuro(reserveAmount),
+                ),
+                (
+                  'Summe Abzuege',
+                  Text('${((totalSharePercent + leakagePercent + reservePercent) * 100).toStringAsFixed(1)} %'),
+                  formatEuro(totalDeductions),
+                ),
+              ],
+              emphasizeLast: true,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _breakEvenOverviewBlock(
+              context,
+              title: 'Verfuegbar fuer Eventfinanzierung',
+              rows: [
+                ('Einnahmen gesamt', formatEuro(totalIncomeBeforeEvent)),
+                ('abzgl. Abzuege', formatEuro(totalDeductions)),
+                ('Budget fuer Eventkosten', formatEuro(availableEventBudget)),
+              ],
+              emphasizeLast: true,
+            ),
+            _breakEvenOverviewBlock(
+              context,
+              title: 'Kostenstruktur',
+              rows: [
+                ('Fixe Grundkosten', formatEuro(fixedEventCosts)),
+                ('Variable Wachstumskosten', formatEuro(variableEventCosts)),
+                ('Eventkosten gesamt', formatEuro(totalEventCosts)),
+                (
+                  'Rest nach Eventkosten',
+                  formatEuro(availableEventBudget - totalEventCosts),
+                ),
+              ],
+              emphasizeLast: true,
+            ),
+            _breakEvenOverviewBlock(
+              context,
+              title: 'Nach Break-even',
+              rows: [
+                (
+                  'Normalpreis-Aufschlag',
+                  '${(_normalPriceMarkupPercent(draft) * 100).round()} %',
+                ),
+                (
+                  'Normalpreis-Tickets',
+                  '${_normalTicketsAfterBreakEvenAtTarget(draft, scenario)}',
+                ),
+                ('Ueberschuss brutto', formatEuro(normalPhaseGross)),
+                (
+                  'Veranstalter-Marge danach',
+                  formatEuro(organizerAfterBreakEven),
+                ),
+                ('Feature-Budget', formatEuro(featureBudget)),
+              ],
+              emphasizeLast: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _breakEvenOverviewBlock(
+    BuildContext context, {
+    required String title,
+    required List<(String, String)> rows,
+    bool emphasizeLast = false,
+    Widget? footer,
+  }) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: 280,
+        maxWidth: 420,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            ...rows.asMap().entries.map((entry) {
+              final index = entry.key;
+              final row = entry.value;
+              final isLast = index == rows.length - 1;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _valueRow(
+                  row.$1,
+                  row.$2,
+                  valueStyle: emphasizeLast && isLast
+                      ? const TextStyle(fontWeight: FontWeight.w700)
+                      : null,
+                  ),
+                );
+              }),
+            if (footer != null) ...[
+              const SizedBox(height: 8),
+              footer,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _breakEvenWideBlock(
+    BuildContext context, {
+    required String title,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _compactOccupancySlider(PlanningDraft draft, PlanningScenario scenario) {
+    final occupancy = _scenarioOccupancy(scenario);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Auslastung feinjustieren: ${(occupancy * 100).round()} %',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        SizedBox(
+          width: 260,
+          child: Slider(
+            value: occupancy,
+            min: 0.3,
+            max: 1.0,
+            divisions: 14,
+            label: '${(occupancy * 100).round()} %',
+            onChanged: (value) {
+              setState(() {
+                _scenarioOccupancyOverrides[scenario.id] = value;
+                _selectedScenarioOverrides[draft.id] = scenario.id;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _editablePercentageBlock(
+    BuildContext context, {
+    required String title,
+    required List<(String, Widget, String)> rows,
+    bool emphasizeLast = false,
+  }) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: 280,
+        maxWidth: 420,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            ...rows.asMap().entries.map((entry) {
+              final index = entry.key;
+              final row = entry.value;
+              final isLast = index == rows.length - 1;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        row.$1,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 110,
+                      child: row.$2,
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 110,
+                      child: Text(
+                        row.$3,
+                        textAlign: TextAlign.right,
+                        style: emphasizeLast && isLast
+                            ? const TextStyle(fontWeight: FontWeight.w700)
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _percentField({
+    required String initialValue,
+    required ValueChanged<String> onChangedValue,
+  }) {
+    return Focus(
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) {
+          setState(() {});
+        }
+      },
+      child: TextFormField(
+        initialValue: initialValue,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: const InputDecoration(
+          suffixText: '%',
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+        onChanged: onChangedValue,
+        onEditingComplete: () => setState(() {}),
+        onFieldSubmitted: (_) => setState(() {}),
+      ),
+    );
+  }
+
+  String _editablePercentValue(double value) {
+    final percent = value * 100;
+    if (percent == percent.roundToDouble()) {
+      return percent.toStringAsFixed(0);
+    }
+    return percent.toStringAsFixed(1).replaceAll('.', ',');
+  }
+
   Widget _buildScenariosTab(BuildContext context, PlanningDraft draft) {
     final growthPath = [...draft.scenarios]
       ..sort((a, b) => a.capacity.compareTo(b.capacity));
+    final selectedScenario = _selectedScenario(draft);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -728,22 +1260,31 @@ class _PlanningScreenState extends State<PlanningScreen> {
           ),
         ),
         const SizedBox(height: 12),
+        _buildScenarioComparison(context, draft),
+        const SizedBox(height: 12),
         ...draft.scenarios.map((scenario) {
-          final isRecommended = scenario.id == _recommendedScenario(draft).id;
+          final isSelected = scenario.id == selectedScenario.id;
           final occupancy = _scenarioOccupancy(scenario);
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isRecommended
-                      ? draft.category.color
-                      : Theme.of(context).dividerColor,
-                  width: isRecommended ? 2 : 1,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                setState(() {
+                  _selectedScenarioOverrides[draft.id] = scenario.id;
+                });
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isSelected
+                        ? draft.category.color
+                        : Theme.of(context).dividerColor,
+                    width: isSelected ? 2 : 1,
+                  ),
                 ),
-              ),
-              child: Padding(
+                child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -758,8 +1299,8 @@ class _PlanningScreenState extends State<PlanningScreen> {
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
-                        if (isRecommended) _pill(context, 'Empfohlen'),
-                        _pill(context, _riskStatusLabel(draft, scenario)),
+                        if (isSelected) _pill(context, 'Ausgewaehlt'),
+                        _pill(context, _scenarioPriceLabel(draft, scenario)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -844,7 +1385,17 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       },
                     ),
                     _valueRow(
-                      'Gesamtkosten inkl. Reserve, Leckage, Marge',
+                      'Fixe Grundkosten',
+                      formatEuro(_scenarioBaseCostsEur(draft, scenario)),
+                    ),
+                    _valueRow(
+                      'Variable Wachstumskosten',
+                      formatEuro(_scenarioVariableCostsEur(draft, scenario)),
+                    ),
+                    if (scenario.variableCostNote.isNotEmpty)
+                      _valueRow('Variable Annahme', scenario.variableCostNote),
+                    _valueRow(
+                      'Noetige Einnahmen vor Veranstaltung',
                       formatEuro(_totalPlannedCostsEur(draft, scenario)),
                     ),
                     _valueRow(
@@ -856,14 +1407,19 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       formatEuro(_requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario)),
                     ),
                     _valueRow(
-                      'Benoetigte Early-Bird-Tickets bis Break-even',
-                      '${_breakEvenEarlyBirdTickets(draft, scenario)}',
+                      'Zielteilnehmer fuer Break-even',
+                      '${_scenarioTargetAttendees(scenario)}',
+                    ),
+                    _valueRow(
+                      'Normalpreis nach Break-even',
+                      formatEuro(_normalPriceEurForScenario(draft, scenario)),
                     ),
                     _valueRow(
                       'Feature-Ueberschuss bei Zielauslastung',
                       formatEuro(_featureBudgetAtTargetAfterBreakEven(draft, scenario)),
                     ),
                   ],
+                ),
                 ),
               ),
             ),
@@ -894,6 +1450,11 @@ class _PlanningScreenState extends State<PlanningScreen> {
   }
 
   Widget _buildTicketsTab(BuildContext context, PlanningDraft draft) {
+    final scenario = _recommendedScenario(draft);
+    final earlyBirdPrice = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
+    final markupPercent = _normalPriceMarkupPercent(draft);
+    final normalPrice = _normalPriceEurForScenario(draft, scenario);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -903,28 +1464,53 @@ class _PlanningScreenState extends State<PlanningScreen> {
           child: Column(
             children: [
               _valueRow(
-                'Early-Bird-Preis',
-                '${draft.earlyBirdPriceEvc} EVC / ${formatEuro(draft.earlyBirdPriceEur)}',
+                'Early-Bird-Preis aus Sachlage',
+                '${earlyBirdPrice.round()} EVC / ${formatEuro(earlyBirdPrice)}',
+              ),
+              _valueRow('Ausgewaehltes Szenario', '${scenario.name} - ${scenario.locationName}'),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: 220,
+                  child: TextFormField(
+                    initialValue: (markupPercent * 100).round().toString(),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Normalpreis-Aufschlag in %',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (value) => _updateNormalPriceMarkup(draft, value),
+                    onFieldSubmitted: (value) {
+                      setState(() {
+                        _updateNormalPriceMarkup(draft, value);
+                      });
+                    },
+                    onEditingComplete: () => setState(() {}),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _valueRow(
+                'Normalpreis nach Break-even',
+                '${normalPrice.round()} EVC / ${formatEuro(normalPrice)}',
               ),
               _valueRow(
-                'Normalpreis',
-                '${draft.normalPriceEvc} EVC / ${formatEuro(draft.normalPriceEur)}',
+                'Aufschlag auf Early Bird',
+                '${(markupPercent * 100).round()} %',
               ),
               _valueRow(
-                'Vorab-Abstimmung / Pre-Sale',
-                '${draft.presaleVotingPriceEvc} EVC / ${formatEuro(draft.presaleVotingPriceEur)}',
-              ),
-              _valueRow(
-                'Early-Bird dient bis Break-even',
-                'Event auf die Beine stellen',
+                'Early Bird finanziert Break-even',
+                'vollstaendig ueber Zielauslastung',
               ),
               _valueRow(
                 'Normalpreis gilt nach Break-even',
                 'Ueberschuss / Features / mehr Marge',
               ),
               _valueRow(
-                'Normalpreis-Ueberschuss pro Ticket',
-                formatEuro(_normalPriceSurplusPerTicketAfterBreakEven(draft)),
+                'Mehrbetrag pro Normalpreis-Ticket',
+                formatEuro(normalPrice - earlyBirdPrice),
               ),
             ],
           ),
@@ -936,7 +1522,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
           child: Column(
             children: draft.scenarios.map((scenario) {
               final required = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
-              final fitLabel = _ticketFitLabelForScenario(draft, scenario);
+              final normalPrice = _normalPriceEurForScenario(draft, scenario);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
@@ -949,7 +1535,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Text(fitLabel),
+                    Text('danach ${formatEuro(normalPrice)} Normalpreis'),
                   ],
                 ),
               );
@@ -961,7 +1547,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
           context,
           title: 'Vorab-Pruefung',
           child: const Text(
-            'Sobald ein Ticketpreis aus der Sachlage ableitbar ist, kann dieser in die Abstimmung oder in einen spaeteren Pre-Sale gegeben werden, um echte Nachfrage zu pruefen.',
+            'Zuerst wird der Early-Bird-Preis aus Halle und Zielauslastung abgeleitet. Der Normalpreis wird danach ueber den Aufschlag berechnet und auf volle Euro aufgerundet.',
           ),
         ),
       ],
@@ -1046,37 +1632,30 @@ class _PlanningScreenState extends State<PlanningScreen> {
   }
 
   Widget _buildBreakEvenTab(BuildContext context, PlanningDraft draft) {
+    final scenario = _selectedScenario(draft);
+    final earlyBirdPrice =
+        _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
+    final normalPrice = _normalPriceEurForScenario(draft, scenario);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionCard(
           context,
-          title: 'Break-even / Main',
+          title: 'Break-even / Detailansicht',
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _valueRow(
-                'Early-Bird-Preis',
-                '${draft.earlyBirdPriceEvc} EVC / ${formatEuro(draft.earlyBirdPriceEur)}',
+              const Text(
+                'Die eigentliche Abschluss-Sachlage steht jetzt im Main-Tab. Hier bleiben die Break-even-Details fuer Vergleich und Szenarioarbeit.',
               ),
-              _valueRow(
-                'Gesamte Unterstuetzung',
-                formatEuro(draft.totalSupportEur),
-              ),
-              _valueRow(
-                'Leckage',
-                '${(draft.leakagePercent * 100).round()} %',
-              ),
-              _valueRow(
-                'Reserve',
-                '${(draft.reservePercent * 100).round()} %',
-              ),
-              _valueRow(
-                'Veranstalter-Marge bis Break-even',
-                '${(draft.organizerMarginPercent * 100).round()} %',
-              ),
-              _valueRow(
-                'Veranstalter-Marge nach Break-even',
-                '${(draft.postBreakEvenMarginPercent * 100).round()} %',
+              const SizedBox(height: 12),
+              _buildCalculationMainOverview(
+                context,
+                draft,
+                scenario,
+                earlyBirdPrice: earlyBirdPrice,
+                normalPrice: normalPrice,
               ),
             ],
           ),
@@ -1102,12 +1681,18 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       formatEuro(_amountToCoverAfterSupportEur(draft, scenario)),
                     ),
                     _valueRow(
-                      'Benoetigte Early-Bird-Tickets',
-                      '${_breakEvenEarlyBirdTickets(draft, scenario)}',
+                      'Zielteilnehmer fuer Break-even',
+                      '${_scenarioTargetAttendees(scenario)}',
                     ),
                     _valueRow(
                       'Noetiger Early-Bird-Preis bei ${_scenarioTargetAttendees(scenario)} Personen',
-                      formatEuro(_requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario)),
+                      formatEuro(
+                        _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario),
+                      ),
+                    ),
+                    _valueRow(
+                      'Normalpreis nach Break-even',
+                      formatEuro(_normalPriceEurForScenario(draft, scenario)),
                     ),
                     _valueRow(
                       'Ueberschuss durch Normalpreis bei ${_scenarioTargetAttendees(scenario)} Personen',
@@ -1115,10 +1700,12 @@ class _PlanningScreenState extends State<PlanningScreen> {
                     ),
                     _valueRow(
                       'Feature-Budget nach Break-even',
-                      formatEuro(_featureBudgetAtTargetAfterBreakEven(draft, scenario)),
+                      formatEuro(
+                        _featureBudgetAtTargetAfterBreakEven(draft, scenario),
+                      ),
                     ),
                     _valueRow(
-                      'Bewertung',
+                      'Preisstatus',
                       _riskStatusLabel(draft, scenario),
                     ),
                   ],
@@ -1213,7 +1800,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
     );
   }
 
-  Widget _valueRow(String label, String value) {
+  Widget _valueRow(String label, String value, {TextStyle? valueStyle}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1230,6 +1817,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
             child: Text(
               value,
               textAlign: TextAlign.right,
+              style: valueStyle,
             ),
           ),
         ],
@@ -1464,19 +2052,41 @@ class _PlanningScreenState extends State<PlanningScreen> {
     return total;
   }
 
+  double _scenarioVariableCostsEur(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    if (scenario.variableCostPerAttendeeEur <= 0) {
+      return 0;
+    }
+
+    final threshold = scenario.variableCostThresholdAttendees > 0
+        ? scenario.variableCostThresholdAttendees
+        : (scenario.capacity * 0.5).round();
+    final variableAttendees = _scenarioTargetAttendees(scenario) - threshold;
+
+    if (variableAttendees <= 0) {
+      return 0;
+    }
+
+    return variableAttendees * scenario.variableCostPerAttendeeEur;
+  }
+
+  double _scenarioEventCostsEur(PlanningDraft draft, PlanningScenario scenario) {
+    return _scenarioBaseCostsEur(draft, scenario) +
+        _scenarioVariableCostsEur(draft, scenario);
+  }
+
   double _totalPlannedCostsEur(PlanningDraft draft, PlanningScenario scenario) {
-    final base = _scenarioBaseCostsEur(draft, scenario);
-    return base +
-        (base * draft.leakagePercent) +
-        (base * draft.reservePercent) +
-        (base * draft.organizerMarginPercent);
+    return _requiredGrossRevenueBeforeEvent(draft, scenario);
   }
 
   double _amountToCoverAfterSupportEur(
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    final result = _totalPlannedCostsEur(draft, scenario) - draft.totalSupportEur;
+    final result =
+        _requiredGrossRevenueBeforeEvent(draft, scenario) - draft.totalSupportEur;
     return result < 0 ? 0 : result;
   }
 
@@ -1495,15 +2105,115 @@ class _PlanningScreenState extends State<PlanningScreen> {
     return _requiredTicketPriceAtTargetOccupancy(draft, scenario);
   }
 
+  double _normalPriceMarkupPercent(PlanningDraft draft) {
+    return _normalPriceMarkupOverrides[draft.id] ?? 0.5;
+  }
+
+  double _leakagePercent(PlanningDraft draft) {
+    return _leakagePercentOverrides[draft.id] ?? draft.leakagePercent;
+  }
+
+  double _reservePercent(PlanningDraft draft) {
+    return _reservePercentOverrides[draft.id] ?? draft.reservePercent;
+  }
+
+  double _organizerSharePercent(PlanningDraft draft) {
+    return _organizerSharePercentOverrides[draft.id] ??
+        draft.organizerMarginPercent;
+  }
+
+  double _partnerSharePercent(PlanningDraft draft) {
+    return _partnerSharePercentOverrides[draft.id] ?? 0.03;
+  }
+
+  double _preEventSharePercent(PlanningDraft draft) {
+    return _organizerSharePercent(draft) + _partnerSharePercent(draft);
+  }
+
+  double _requiredGrossRevenueBeforeEvent(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final eventCosts = _scenarioEventCostsEur(draft, scenario);
+    final deductionFactor =
+        1 -
+        _preEventSharePercent(draft) -
+        _leakagePercent(draft) -
+        _reservePercent(draft);
+
+    if (deductionFactor <= 0) {
+      return eventCosts;
+    }
+
+    return eventCosts / deductionFactor;
+  }
+
+  void _updateNormalPriceMarkup(PlanningDraft draft, String value) {
+    final parsed = _parsePlanningNumber(value);
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+    _normalPriceMarkupOverrides[draft.id] = parsed / 100;
+  }
+
+  void _updateLeakagePercent(PlanningDraft draft, String value) {
+    final parsed = _parsePlanningNumber(value);
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+    _leakagePercentOverrides[draft.id] = parsed / 100;
+  }
+
+  void _updateReservePercent(PlanningDraft draft, String value) {
+    final parsed = _parsePlanningNumber(value);
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+    _reservePercentOverrides[draft.id] = parsed / 100;
+  }
+
+  void _updateOrganizerSharePercent(PlanningDraft draft, String value) {
+    final parsed = _parsePlanningNumber(value);
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+    _organizerSharePercentOverrides[draft.id] = parsed / 100;
+  }
+
+  void _updatePartnerSharePercent(PlanningDraft draft, String value) {
+    final parsed = _parsePlanningNumber(value);
+    if (parsed == null || parsed < 0) {
+      return;
+    }
+    _partnerSharePercentOverrides[draft.id] = parsed / 100;
+  }
+
+  double _roundUpToFullEuro(double value) {
+    return value.ceilToDouble();
+  }
+
+  double _normalPriceEurForScenario(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final earlyBird = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
+    return _roundUpToFullEuro(
+      earlyBird * (1 + _normalPriceMarkupPercent(draft)),
+    );
+  }
+
   int _breakEvenEarlyBirdTickets(
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    if (draft.earlyBirdPriceEur <= 0) {
+    final earlyBirdPrice =
+        _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
+
+    if (earlyBirdPrice <= 0) {
       return 0;
     }
 
-    return (_amountToCoverAfterSupportEur(draft, scenario) / draft.earlyBirdPriceEur)
+    return (_amountToCoverAfterSupportEur(draft, scenario) / earlyBirdPrice)
         .ceil();
   }
 
@@ -1516,12 +2226,19 @@ class _PlanningScreenState extends State<PlanningScreen> {
     return remainder < 0 ? 0 : remainder;
   }
 
-  double _normalPriceSurplusPerTicketAfterBreakEven(PlanningDraft draft) {
-    return draft.normalPriceEur;
+  double _normalPriceSurplusPerTicketAfterBreakEven(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    return _normalPriceEurForScenario(draft, scenario);
   }
 
-  double _organizerMarginPerNormalTicketAfterBreakEven(PlanningDraft draft) {
-    return draft.normalPriceEur * draft.postBreakEvenMarginPercent;
+  double _organizerMarginPerNormalTicketAfterBreakEven(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    return _normalPriceEurForScenario(draft, scenario) *
+        draft.postBreakEvenMarginPercent;
   }
 
   double _normalPhaseGrossSurplusAtTarget(
@@ -1529,7 +2246,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
     PlanningScenario scenario,
   ) {
     return _normalTicketsAfterBreakEvenAtTarget(draft, scenario) *
-        _normalPriceSurplusPerTicketAfterBreakEven(draft);
+        _normalPriceSurplusPerTicketAfterBreakEven(draft, scenario);
   }
 
   double _featureBudgetAtTargetAfterBreakEven(
@@ -1539,20 +2256,36 @@ class _PlanningScreenState extends State<PlanningScreen> {
     final gross = _normalPhaseGrossSurplusAtTarget(draft, scenario);
     final organizerPart =
         _normalTicketsAfterBreakEvenAtTarget(draft, scenario) *
-            _organizerMarginPerNormalTicketAfterBreakEven(draft);
+            _organizerMarginPerNormalTicketAfterBreakEven(draft, scenario);
     final result = gross - organizerPart;
     return result < 0 ? 0 : result;
   }
 
-  String _riskStatusLabel(PlanningDraft draft, PlanningScenario scenario) {
+  String _scenarioPriceLabel(PlanningDraft draft, PlanningScenario scenario) {
     final required = _requiredTicketPriceAtTargetOccupancy(draft, scenario);
-    if (required <= draft.normalPriceEur) {
-      return 'erreichbar';
+    if (required <= 50) {
+      return 'Preis niedrig';
     }
-    if (required <= draft.normalPriceEur * 1.15) {
-      return 'knapp';
+    if (required <= 75) {
+      return 'Preis pruefen';
     }
-    return 'kritisch';
+    return 'Preis hoch';
+  }
+
+  String _riskStatusLabel(PlanningDraft draft, PlanningScenario scenario) {
+    return _scenarioPriceLabel(draft, scenario);
+  }
+
+  PlanningScenario _selectedScenario(PlanningDraft draft) {
+    final selectedId = _selectedScenarioOverrides[draft.id];
+    if (selectedId == null) {
+      return _recommendedScenario(draft);
+    }
+
+    return draft.scenarios.firstWhere(
+      (scenario) => scenario.id == selectedId,
+      orElse: () => _recommendedScenario(draft),
+    );
   }
 
   PlanningScenario _recommendedScenario(PlanningDraft draft) {
@@ -1565,38 +2298,15 @@ class _PlanningScreenState extends State<PlanningScreen> {
   }
 
   String _mainDecisionStatus(PlanningDraft draft) {
-    final required =
-        _requiredEarlyBirdPriceAtTargetOccupancy(draft, _recommendedScenario(draft));
-    if (required <= draft.earlyBirdPriceEur) {
-      return 'erreichbar';
-    }
-    if (required <= draft.normalPriceEur) {
-      return 'knapp';
-    }
-    return 'kritisch';
+    return _riskStatusLabel(draft, _selectedScenario(draft));
   }
 
   String _mainDecisionSummary(PlanningDraft draft) {
+    final scenario = _selectedScenario(draft);
     final required =
-        _requiredEarlyBirdPriceAtTargetOccupancy(draft, _recommendedScenario(draft));
-    if (required <= draft.earlyBirdPriceEur) {
-      return 'Mit dem Early-Bird-Preis kann das empfohlene Szenario bis Break-even getragen werden.';
-    }
-    if (required <= draft.normalPriceEur) {
-      return 'Early Bird reicht noch nicht, aber mit spaeterem Normalpreis wirkt das Szenario grundsaetzlich darstellbar.';
-    }
-    return 'Ohne mehr Unterstuetzung, hoeheren Preis oder ein kleineres Szenario ist das Event aktuell kritisch.';
-  }
-
-  String _ticketFitLabelForScenario(PlanningDraft draft, PlanningScenario scenario) {
-    final required = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
-    if (draft.earlyBirdPriceEur >= required) {
-      return 'passt';
-    }
-    if (draft.normalPriceEur >= required) {
-      return 'nur mit spaeterem Normalpreis tragbar';
-    }
-    return 'mehr Unterstuetzung noetig';
+        _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
+    final normalPrice = _normalPriceEurForScenario(draft, scenario);
+    return 'Das ausgewaehlte Szenario braucht bei ${_scenarioTargetAttendees(scenario)} zahlenden Early Birds ${formatEuro(required)} bis Break-even. Danach liegt der Normalpreis bei ${formatEuro(normalPrice)}.';
   }
 }
 
@@ -1740,6 +2450,10 @@ class PlanningDraft {
           marketingCostEur: 1200,
           organizerWorkEur: 1500,
           barriersCostEur: 350,
+          variableCostPerAttendeeEur: 1.2,
+          variableCostThresholdAttendees: 250,
+          variableCostNote:
+              'Mehrgaeste ab 50 % Auslastung fuer Personal, Material und Ablaufpuffer.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'venue-small-security-core',
@@ -1788,6 +2502,10 @@ class PlanningDraft {
           marketingCostEur: 1600,
           organizerWorkEur: 1800,
           barriersCostEur: 500,
+          variableCostPerAttendeeEur: 1.8,
+          variableCostThresholdAttendees: 425,
+          variableCostNote:
+              'Wachstumskosten fuer zusaetzliches Personal, GEMA-Staffel und Verbrauch.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'venue-medium-security-core',
@@ -1847,6 +2565,10 @@ class PlanningDraft {
           marketingCostEur: 2800,
           organizerWorkEur: 2400,
           barriersCostEur: 1200,
+          variableCostPerAttendeeEur: 2.5,
+          variableCostThresholdAttendees: 1000,
+          variableCostNote:
+              'Groessere Auslastung braucht mehr Personal, Toiletten, GEMA und Logistik.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'venue-large-security-team',
@@ -1970,6 +2692,10 @@ class PlanningDraft {
           marketingCostEur: 380,
           organizerWorkEur: 650,
           barriersCostEur: 0,
+          variableCostPerAttendeeEur: 0.8,
+          variableCostThresholdAttendees: 120,
+          variableCostNote:
+              'Mehrgaeste verursachen vor allem Einlass-, Material- und Ablaufkosten.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'party-club-security',
@@ -2009,6 +2735,10 @@ class PlanningDraft {
           marketingCostEur: 650,
           organizerWorkEur: 900,
           barriersCostEur: 250,
+          variableCostPerAttendeeEur: 1.2,
+          variableCostThresholdAttendees: 225,
+          variableCostNote:
+              'Mehrgaeste koennen zusaetzliche Security, Personal und Verbrauch ausloesen.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'party-mid-security-core',
@@ -2057,6 +2787,10 @@ class PlanningDraft {
           marketingCostEur: 1400,
           organizerWorkEur: 1200,
           barriersCostEur: 900,
+          variableCostPerAttendeeEur: 1.8,
+          variableCostThresholdAttendees: 600,
+          variableCostNote:
+              'Bei Wachstum steigen Security, Toiletten, GEMA, Reinigung und Material.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'party-large-security-team',
@@ -2183,6 +2917,10 @@ class PlanningDraft {
           marketingCostEur: 220,
           organizerWorkEur: 350,
           barriersCostEur: 0,
+          variableCostPerAttendeeEur: 0.6,
+          variableCostThresholdAttendees: 70,
+          variableCostNote:
+              'Mehr Familien bedeuten zusaetzliche Betreuung, Verbrauch und Ablaufpuffer.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'kids-small-security',
@@ -2231,6 +2969,10 @@ class PlanningDraft {
           marketingCostEur: 320,
           organizerWorkEur: 500,
           barriersCostEur: 0,
+          variableCostPerAttendeeEur: 0.8,
+          variableCostThresholdAttendees: 110,
+          variableCostNote:
+              'Mehrgaeste koennen Betreuung, Verbrauch und Aufsichtskosten erhoehen.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'kids-medium-security',
@@ -2346,6 +3088,10 @@ class PlanningDraft {
           marketingCostEur: 380,
           organizerWorkEur: 650,
           barriersCostEur: 0,
+          variableCostPerAttendeeEur: 0.7,
+          variableCostThresholdAttendees: 90,
+          variableCostNote:
+              'Mehrgaeste erzeugen kleinere Zusatzkosten fuer Einlass und Verbrauch.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'acoustic-small-security',
@@ -2385,6 +3131,10 @@ class PlanningDraft {
           marketingCostEur: 700,
           organizerWorkEur: 900,
           barriersCostEur: 0,
+          variableCostPerAttendeeEur: 1.0,
+          variableCostThresholdAttendees: 210,
+          variableCostNote:
+              'Mehrgaeste koennen zusaetzliches Personal, GEMA und Verbrauch ausloesen.',
           staffingItems: [
             PlanningStaffingItem(
               id: 'acoustic-medium-security',
@@ -2464,6 +3214,9 @@ class PlanningScenario {
   final double marketingCostEur;
   final double organizerWorkEur;
   final double barriersCostEur;
+  final double variableCostPerAttendeeEur;
+  final int variableCostThresholdAttendees;
+  final String variableCostNote;
   final String locationNotes;
   final List<PlanningStaffingItem> staffingItems;
 
@@ -2485,6 +3238,9 @@ class PlanningScenario {
     required this.marketingCostEur,
     required this.organizerWorkEur,
     required this.barriersCostEur,
+    this.variableCostPerAttendeeEur = 0,
+    this.variableCostThresholdAttendees = 0,
+    this.variableCostNote = '',
     required this.locationNotes,
     this.staffingItems = const [],
   });
