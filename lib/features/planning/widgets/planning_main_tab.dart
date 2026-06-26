@@ -6,8 +6,9 @@ extension on _PlanningScreenState {
     final visibleStaffingItems = _visibleStaffingItems(draft, scenario);
     final earlyBirdPrice = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
     final normalPrice = _normalPriceEurForScenario(draft, scenario);
-    final preEventBalance = _availableEventBudgetBeforeEvent(draft, scenario) -
-        _scenarioEventCostsEur(draft, scenario);
+    final preEventBalance =
+        _mainAvailableEventBudgetBeforeEvent(draft, scenario) -
+            _scenarioEventCostsEur(draft, scenario);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,6 +163,18 @@ extension on _PlanningScreenState {
         ),
       ],
     );
+  }
+
+  double _mainAvailableEventBudgetBeforeEvent(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final income = _requiredGrossRevenueBeforeEvent(draft, scenario);
+    final deductions = income *
+        (_preEventSharePercent(draft) +
+            _leakagePercent(draft) +
+            _reservePercent(draft));
+    return income - deductions;
   }
 
   Widget _buildInlineStaffingEditor(

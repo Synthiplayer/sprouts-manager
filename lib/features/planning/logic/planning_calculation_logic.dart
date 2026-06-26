@@ -492,18 +492,6 @@ extension on _PlanningScreenState {
     return eventCosts / deductionFactor;
   }
 
-  double _availableEventBudgetBeforeEvent(
-    PlanningDraft draft,
-    PlanningScenario scenario,
-  ) {
-    final income = _requiredGrossRevenueBeforeEvent(draft, scenario);
-    final deductions = income *
-        (_preEventSharePercent(draft) +
-            _leakagePercent(draft) +
-            _reservePercent(draft));
-    return income - deductions;
-  }
-
   void _updateNormalPriceMarkup(PlanningDraft draft, String value) {
     final parsed = _parsePlanningNumber(value);
     if (parsed == null || parsed < 0) {
