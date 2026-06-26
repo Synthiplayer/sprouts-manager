@@ -1,0 +1,263 @@
+part of '../planning_screen.dart';
+
+extension on _PlanningScreenState {
+  Future<File> _planningSandboxFile() async {
+    final directory = _planningSandboxDirectory();
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+    return File(
+      '${directory.path}${Platform.pathSeparator}${_PlanningScreenState._sandboxFileName}',
+    );
+  }
+
+  Directory _planningSandboxDirectory() {
+    if (Platform.isWindows) {
+      final appData = Platform.environment['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        return Directory('$appData${Platform.pathSeparator}SproutsManager');
+      }
+    }
+
+    final home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    if (home != null && home.isNotEmpty) {
+      return Directory('$home${Platform.pathSeparator}.sprouts_manager');
+    }
+
+    return Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}sprouts_manager',
+    );
+  }
+
+  Future<void> _loadPlanningSandboxState() async {
+    try {
+      final file = await _planningSandboxFile();
+      if (!file.existsSync()) {
+        if (mounted) {
+          _refreshPlanningUi(() {
+            _isLoadingSandboxState = false;
+          });
+        }
+        return;
+      }
+
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map<String, dynamic>) {
+        if (mounted) {
+          _refreshPlanningUi(() {
+            _isLoadingSandboxState = false;
+          });
+        }
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      _refreshPlanningUi(() {
+        _restorePlanningSandboxState(decoded);
+        _isLoadingSandboxState = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        _refreshPlanningUi(() {
+          _isLoadingSandboxState = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _savePlanningSandboxState() async {
+    if (_isLoadingSandboxState) {
+      return;
+    }
+
+    try {
+      final file = await _planningSandboxFile();
+      await file.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(_planningSandboxStateJson()),
+      );
+    } catch (_) {
+      // Sandbox persistence must never block planning UI work.
+    }
+  }
+
+  Map<String, dynamic> _planningSandboxStateJson() {
+    return {
+      'selectedDraftId': _selectedDraftId,
+      'selectedScenarioOverrides': _selectedScenarioOverrides,
+      'scenarioOccupancyOverrides': _scenarioOccupancyOverrides,
+      'scenarioVariableCostOverrides': _scenarioVariableCostOverrides,
+      'scenarioVariableCostThresholdOverrides':
+          _scenarioVariableCostThresholdOverrides,
+      'staffingItemOverrides': _staffingItemOverrides,
+      'staffingPeopleOverrides': _staffingPeopleOverrides,
+      'staffingHoursOverrides': _staffingHoursOverrides,
+      'staffingRateOverrides': _staffingRateOverrides,
+      'normalPriceMarkupOverrides': _normalPriceMarkupOverrides,
+      'leakagePercentOverrides': _leakagePercentOverrides,
+      'reservePercentOverrides': _reservePercentOverrides,
+      'organizerSharePercentOverrides': _organizerSharePercentOverrides,
+      'partnerSharePercentOverrides': _partnerSharePercentOverrides,
+      'draftOptionOverrides': _draftOptionOverrides.map(
+        (draftId, options) => MapEntry(
+          draftId,
+          options.map((option, value) => MapEntry(option.name, value)),
+        ),
+      ),
+      'artistCostItemOverrides': _artistCostItemOverrides.map(
+        (draftId, items) => MapEntry(
+          draftId,
+          items.map((item) => item.toJson()).toList(),
+        ),
+      ),
+    };
+  }
+
+  void _restorePlanningSandboxState(Map<String, dynamic> json) {
+    final selectedDraftId = json['selectedDraftId'];
+    if (selectedDraftId is String &&
+        _drafts.any((draft) => draft.id == selectedDraftId)) {
+      _selectedDraftId = selectedDraftId;
+    }
+
+    _selectedScenarioOverrides
+      ..clear()
+      ..addAll(_stringMap(json['selectedScenarioOverrides']));
+    _scenarioOccupancyOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['scenarioOccupancyOverrides']));
+    _scenarioVariableCostOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['scenarioVariableCostOverrides']));
+    _scenarioVariableCostThresholdOverrides
+      ..clear()
+      ..addAll(_intMap(json['scenarioVariableCostThresholdOverrides']));
+    _staffingItemOverrides
+      ..clear()
+      ..addAll(_boolMap(json['staffingItemOverrides']));
+    _staffingPeopleOverrides
+      ..clear()
+      ..addAll(_intMap(json['staffingPeopleOverrides']));
+    _staffingHoursOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['staffingHoursOverrides']));
+    _staffingRateOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['staffingRateOverrides']));
+    _normalPriceMarkupOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['normalPriceMarkupOverrides']));
+    _leakagePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['leakagePercentOverrides']));
+    _reservePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['reservePercentOverrides']));
+    _organizerSharePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['organizerSharePercentOverrides']));
+    _partnerSharePercentOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['partnerSharePercentOverrides']));
+
+    _draftOptionOverrides
+      ..clear()
+      ..addAll(_draftOptionMap(json['draftOptionOverrides']));
+    _artistCostItemOverrides
+      ..clear()
+      ..addAll(_artistCostItemMap(json['artistCostItemOverrides']));
+  }
+
+  Map<String, String> _stringMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map(
+      (key, entry) => MapEntry(key.toString(), entry.toString()),
+    );
+  }
+
+  Map<String, double> _doubleMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map((key, entry) {
+      final parsed = entry is num ? entry.toDouble() : double.tryParse('$entry');
+      return MapEntry(key.toString(), parsed ?? 0);
+    });
+  }
+
+  Map<String, int> _intMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map((key, entry) {
+      final parsed = entry is num ? entry.toInt() : int.tryParse('$entry');
+      return MapEntry(key.toString(), parsed ?? 0);
+    });
+  }
+
+  Map<String, bool> _boolMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map((key, entry) => MapEntry(key.toString(), entry == true));
+  }
+
+  Map<String, Map<PlanningScenarioOption, bool>> _draftOptionMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+
+    final result = <String, Map<PlanningScenarioOption, bool>>{};
+    for (final draftEntry in value.entries) {
+      final options = draftEntry.value;
+      if (options is! Map) {
+        continue;
+      }
+      final restoredOptions = <PlanningScenarioOption, bool>{};
+      for (final optionEntry in options.entries) {
+        final option = _planningScenarioOptionByName(optionEntry.key.toString());
+        if (option == null) {
+          continue;
+        }
+        restoredOptions[option] = optionEntry.value == true;
+      }
+      result[draftEntry.key.toString()] = restoredOptions;
+    }
+    return result;
+  }
+
+  PlanningScenarioOption? _planningScenarioOptionByName(String name) {
+    for (final option in PlanningScenarioOption.values) {
+      if (option.name == name) {
+        return option;
+      }
+    }
+    return null;
+  }
+
+  Map<String, List<PlanningArtistCostItem>> _artistCostItemMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+
+    final result = <String, List<PlanningArtistCostItem>>{};
+    for (final draftEntry in value.entries) {
+      final items = draftEntry.value;
+      if (items is! List) {
+        continue;
+      }
+      result[draftEntry.key.toString()] = [
+        for (final item in items)
+          if (item is Map)
+            PlanningArtistCostItem.fromJson(
+              item.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+      ];
+    }
+    return result;
+  }
+}
