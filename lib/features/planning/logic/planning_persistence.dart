@@ -112,6 +112,12 @@ extension on _PlanningScreenState {
           items.map((item) => item.toJson()).toList(),
         ),
       ),
+      'technologyCostItemOverrides': _technologyCostItemOverrides.map(
+        (draftId, items) => MapEntry(
+          draftId,
+          items.map((item) => item.toJson()).toList(),
+        ),
+      ),
     };
   }
 
@@ -168,6 +174,9 @@ extension on _PlanningScreenState {
     _artistCostItemOverrides
       ..clear()
       ..addAll(_artistCostItemMap(json['artistCostItemOverrides']));
+    _technologyCostItemOverrides
+      ..clear()
+      ..addAll(_technologyCostItemMap(json['technologyCostItemOverrides']));
   }
 
   Map<String, String> _stringMap(Object? value) {
@@ -254,6 +263,30 @@ extension on _PlanningScreenState {
         for (final item in items)
           if (item is Map)
             PlanningArtistCostItem.fromJson(
+              item.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+      ];
+    }
+    return result;
+  }
+
+  Map<String, List<PlanningTechnologyCostItem>> _technologyCostItemMap(
+    Object? value,
+  ) {
+    if (value is! Map) {
+      return {};
+    }
+
+    final result = <String, List<PlanningTechnologyCostItem>>{};
+    for (final draftEntry in value.entries) {
+      final items = draftEntry.value;
+      if (items is! List) {
+        continue;
+      }
+      result[draftEntry.key.toString()] = [
+        for (final item in items)
+          if (item is Map)
+            PlanningTechnologyCostItem.fromJson(
               item.map((key, value) => MapEntry(key.toString(), value)),
             ),
       ];

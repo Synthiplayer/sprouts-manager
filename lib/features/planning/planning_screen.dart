@@ -3,13 +3,13 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:sprouts_manager/core/domain_enums.dart';
 import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
 import 'package:sprouts_manager/features/planning/data/planning_sandbox_drafts.dart';
 import 'package:sprouts_manager/features/planning/domain/planning_models.dart';
 import 'package:sprouts_manager/features/events/event_category_ui.dart';
 
 part 'widgets/planning_artists_tab.dart';
+part 'widgets/planning_technology_tab.dart';
 part 'widgets/planning_costs_tab.dart';
 part 'widgets/planning_main_tab.dart';
 part 'widgets/planning_scenarios_tab.dart';
@@ -26,6 +26,7 @@ enum PlanningWorkspaceTab {
   scenarios,
   costs,
   artists,
+  technology,
   tickets,
   sponsoring,
   breakEven,
@@ -57,6 +58,8 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, double> _partnerSharePercentOverrides = {};
   final Map<String, String> _selectedScenarioOverrides = {};
   final Map<String, List<PlanningArtistCostItem>> _artistCostItemOverrides = {};
+  final Map<String, List<PlanningTechnologyCostItem>>
+      _technologyCostItemOverrides = {};
   String? _selectedDraftId;
   PlanningWorkspaceTab _tab = PlanningWorkspaceTab.main;
   bool _isLoadingSandboxState = true;
@@ -323,6 +326,10 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 label: Text('Kuenstler'),
               ),
               ButtonSegment(
+                value: PlanningWorkspaceTab.technology,
+                label: Text('Technik'),
+              ),
+              ButtonSegment(
                 value: PlanningWorkspaceTab.tickets,
                 label: Text('Tickets'),
               ),
@@ -386,6 +393,17 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 onItemsChanged: (items) {
                   setState(() {
                     _artistCostItemOverrides[draft.id] = items;
+                  });
+                  _savePlanningSandboxState();
+                },
+              ),
+            PlanningWorkspaceTab.technology => PlanningTechnologyTab(
+                draft: draft,
+                scenario: _selectedScenario(draft),
+                items: _technologyCostItemsForDraft(draft),
+                onItemsChanged: (items) {
+                  setState(() {
+                    _technologyCostItemOverrides[draft.id] = items;
                   });
                   _savePlanningSandboxState();
                 },

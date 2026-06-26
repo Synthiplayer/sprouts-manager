@@ -147,6 +147,7 @@ extension on _PlanningScreenState {
         totalShareAmount + leakageAmount + reserveAmount;
     final availableEventBudget =
         totalIncomeBeforeEvent - totalDeductions;
+    final preEventBalance = availableEventBudget - totalEventCosts;
     final normalPhaseGross = _normalPhaseGrossSurplusAtTarget(draft, scenario);
     final organizerAfterBreakEven =
         _normalTicketsAfterBreakEvenAtTarget(draft, scenario) *
@@ -270,8 +271,10 @@ extension on _PlanningScreenState {
                 ('Variable Wachstumskosten', formatEuro(variableEventCosts)),
                 ('Eventkosten gesamt', formatEuro(totalEventCosts)),
                 (
-                  'Rest nach Eventkosten',
-                  formatEuro(availableEventBudget - totalEventCosts),
+                  preEventBalance >= 0
+                      ? 'Puffer vor Veranstaltung'
+                      : 'Fehlbetrag vor Veranstaltung',
+                  formatEuro(preEventBalance),
                 ),
               ],
               emphasizeLast: true,
@@ -299,6 +302,76 @@ extension on _PlanningScreenState {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _breakEvenWideBlock(
+          context,
+          title: 'Eventkosten nach Positionen',
+          child: _mainCostPositionSummary(context, draft, scenario),
+        ),
+      ],
+    );
+  }
+
+  Widget _mainCostPositionSummary(
+    BuildContext context,
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final items = _costOverviewItemsForScenario(draft, scenario);
+    final fixedTotal = items
+        .where((item) => !item.isVariable)
+        .fold<double>(0, (sum, item) => sum + item.amountEur);
+    final variableTotal = items
+        .where((item) => item.isVariable)
+        .fold<double>(0, (sum, item) => sum + item.amountEur);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 20,
+          runSpacing: 8,
+          children: [
+            _infoPair('Fixe Kosten', formatEuro(fixedTotal)),
+            _infoPair('Variable Kosten', formatEuro(variableTotal)),
+            _infoPair('Summe Eventkosten', formatEuro(fixedTotal + variableTotal)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        const SizedBox(height: 10),
+        if (items.isEmpty)
+          const Text('Noch keine aktiven Kostenpositionen.')
+        else
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      item.label,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(item.source),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      formatEuro(item.amountEur),
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -291,6 +291,110 @@ PlanningArtistCostType? _artistCostTypeByName(String? name) {
   return null;
 }
 
+enum PlanningTechnologyCostType {
+  stage,
+  sound,
+  truss,
+  light,
+  screenProjector,
+  other,
+}
+
+extension PlanningTechnologyCostTypeX on PlanningTechnologyCostType {
+  String get label {
+    switch (this) {
+      case PlanningTechnologyCostType.stage:
+        return 'Buehne';
+      case PlanningTechnologyCostType.sound:
+        return 'Ton';
+      case PlanningTechnologyCostType.truss:
+        return 'Traversen';
+      case PlanningTechnologyCostType.light:
+        return 'Licht';
+      case PlanningTechnologyCostType.screenProjector:
+        return 'Leinwand / Beamer';
+      case PlanningTechnologyCostType.other:
+        return 'Sonstiges';
+    }
+  }
+}
+
+class PlanningTechnologyCostItem {
+  final String id;
+  final String label;
+  final PlanningTechnologyCostType type;
+  final int quantity;
+  final double grossUnitAmountEur;
+  final String note;
+
+  const PlanningTechnologyCostItem({
+    required this.id,
+    required this.label,
+    required this.type,
+    required this.quantity,
+    required this.grossUnitAmountEur,
+    this.note = '',
+  });
+
+  double get grossTotalEur => quantity * grossUnitAmountEur;
+
+  PlanningTechnologyCostItem copyWith({
+    String? label,
+    PlanningTechnologyCostType? type,
+    int? quantity,
+    double? grossUnitAmountEur,
+    String? note,
+  }) {
+    return PlanningTechnologyCostItem(
+      id: id,
+      label: label ?? this.label,
+      type: type ?? this.type,
+      quantity: quantity ?? this.quantity,
+      grossUnitAmountEur: grossUnitAmountEur ?? this.grossUnitAmountEur,
+      note: note ?? this.note,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'label': label,
+      'type': type.name,
+      'quantity': quantity,
+      'grossUnitAmountEur': grossUnitAmountEur,
+      'note': note,
+    };
+  }
+
+  factory PlanningTechnologyCostItem.fromJson(Map<String, dynamic> json) {
+    return PlanningTechnologyCostItem(
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      type: _technologyCostTypeByName(json['type']?.toString()) ??
+          PlanningTechnologyCostType.sound,
+      quantity: json['quantity'] is num
+          ? (json['quantity'] as num).toInt()
+          : int.tryParse('${json['quantity']}') ?? 1,
+      grossUnitAmountEur: json['grossUnitAmountEur'] is num
+          ? (json['grossUnitAmountEur'] as num).toDouble()
+          : double.tryParse('${json['grossUnitAmountEur']}') ?? 0,
+      note: json['note']?.toString() ?? '',
+    );
+  }
+}
+
+PlanningTechnologyCostType? _technologyCostTypeByName(String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final type in PlanningTechnologyCostType.values) {
+    if (type.name == name) {
+      return type;
+    }
+  }
+  return null;
+}
+
 class PlanningCostOverviewItem {
   final String label;
   final double amountEur;

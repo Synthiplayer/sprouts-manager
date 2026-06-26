@@ -213,6 +213,30 @@ extension on _PlanningScreenState {
     return plannedArtistCosts;
   }
 
+  List<PlanningTechnologyCostItem> _technologyCostItemsForDraft(
+    PlanningDraft draft,
+  ) {
+    return _technologyCostItemOverrides[draft.id] ?? const [];
+  }
+
+  double _technologyCostTotalEurForDraft(PlanningDraft draft) {
+    return _technologyCostItemsForDraft(draft).fold<double>(
+      0,
+      (total, item) => total + item.grossTotalEur,
+    );
+  }
+
+  double _technologyCostForScenario(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final plannedTechnologyCosts = _technologyCostTotalEurForDraft(draft);
+    if (plannedTechnologyCosts <= 0) {
+      return scenario.technologyCostEur;
+    }
+    return plannedTechnologyCosts;
+  }
+
   List<PlanningCostOverviewItem> _costOverviewItemsForScenario(
     PlanningDraft draft,
     PlanningScenario scenario,
@@ -232,8 +256,10 @@ extension on _PlanningScreenState {
       ),
       PlanningCostOverviewItem(
         label: 'Technik',
-        amountEur: scenario.technologyCostEur,
-        source: 'Szenario',
+        amountEur: _technologyCostForScenario(draft, scenario),
+        source: _technologyCostItemsForDraft(draft).isEmpty
+            ? 'Szenario-Platzhalter'
+            : 'Technik-Tab',
       ),
       PlanningCostOverviewItem(
         label: 'Security',
@@ -329,7 +355,7 @@ extension on _PlanningScreenState {
   double _scenarioBaseCostsEur(PlanningDraft draft, PlanningScenario scenario) {
     var total = scenario.baseRentEur +
         _artistCostForScenario(draft, scenario) +
-        scenario.technologyCostEur +
+        _technologyCostForScenario(draft, scenario) +
         scenario.gemaCostEur +
         scenario.insuranceCostEur +
         scenario.marketingCostEur +
@@ -464,6 +490,18 @@ extension on _PlanningScreenState {
     }
 
     return eventCosts / deductionFactor;
+  }
+
+  double _availableEventBudgetBeforeEvent(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final income = _requiredGrossRevenueBeforeEvent(draft, scenario);
+    final deductions = income *
+        (_preEventSharePercent(draft) +
+            _leakagePercent(draft) +
+            _reservePercent(draft));
+    return income - deductions;
   }
 
   void _updateNormalPriceMarkup(PlanningDraft draft, String value) {

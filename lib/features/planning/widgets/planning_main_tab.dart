@@ -6,45 +6,64 @@ extension on _PlanningScreenState {
     final visibleStaffingItems = _visibleStaffingItems(draft, scenario);
     final earlyBirdPrice = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
     final normalPrice = _normalPriceEurForScenario(draft, scenario);
+    final preEventBalance = _availableEventBudgetBeforeEvent(draft, scenario) -
+        _scenarioEventCostsEur(draft, scenario);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionCard(
-          context,
-          title: 'Main / Entscheidungsansicht',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _valueRow('Arbeitstitel', draft.title),
-              _valueRow('Kategorie', draft.category.label),
-              _valueRow('Format', draft.format),
-              _valueRow('Zielgruppe', draft.targetAudience),
-              _valueRow('Ausgewaehltes Szenario', '${scenario.name} - ${scenario.locationName}'),
-              _valueRow(
-                'Noetiger Early-Bird-Preis bei Zielauslastung',
-                formatEuro(earlyBirdPrice),
-              ),
-              _valueRow(
-                'Zielteilnehmer fuer Break-even',
-                '${_scenarioTargetAttendees(scenario)}',
-              ),
-              _valueRow(
-                'Normalpreis nach Break-even',
-                '${normalPrice.round()} EVC / ${formatEuro(normalPrice)}',
-              ),
-              _valueRow(
-                'Gesamte Unterstuetzung',
-                formatEuro(draft.totalSupportEur),
-              ),
-              _valueRow(
-                'Feature-Ueberschuss bei Zielauslastung',
-                formatEuro(_featureBudgetAtTargetAfterBreakEven(draft, scenario)),
-              ),
-              _valueRow('Sachlage', _mainDecisionSummary(draft)),
-            ],
-          ),
-        ),
+            context,
+            title: 'Main / Entscheidungsansicht',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    draft.category.toChip(filled: false),
+                    _pill(context, _mainDecisionStatus(draft)),
+                    _pill(context, scenario.name),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 20,
+                  runSpacing: 14,
+                  children: [
+                    _infoPair('Projekt', draft.title),
+                    _infoPair('Format', draft.format),
+                    _infoPair('Zielgruppe', draft.targetAudience),
+                    _infoPair('Location', scenario.locationName),
+                    _infoPair('Setup', scenario.setupName),
+                    _infoPair('Besucher Ziel', '${_scenarioTargetAttendees(scenario)}'),
+                    _infoPair(
+                      'Early-Bird bis Break-even',
+                      '${earlyBirdPrice.round()} EVC / ${formatEuro(earlyBirdPrice)}',
+                    ),
+                    _infoPair(
+                      'Normalpreis danach',
+                      '${normalPrice.round()} EVC / ${formatEuro(normalPrice)}',
+                    ),
+                    _infoPair(
+                      preEventBalance >= 0
+                          ? 'Puffer vor Veranstaltung'
+                          : 'Fehlbetrag vor Veranstaltung',
+                      formatEuro(preEventBalance),
+                    ),
+                    _infoPair(
+                      'Feature-Budget danach',
+                      formatEuro(
+                        _featureBudgetAtTargetAfterBreakEven(draft, scenario),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(_mainDecisionSummary(draft)),
+              ],
+            )),
         const SizedBox(height: 12),
         _sectionCard(
           context,
