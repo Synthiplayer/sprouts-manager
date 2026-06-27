@@ -216,7 +216,7 @@ extension on _PlanningScreenState {
   List<PlanningTechnologyCostItem> _technologyCostItemsForDraft(
     PlanningDraft draft,
   ) {
-    return _technologyCostItemOverrides[draft.id] ?? const [];
+    return _technologyCostItemOverrides[draft.id] ?? draft.technologyCostItems;
   }
 
   double _technologyCostTotalEurForDraft(PlanningDraft draft) {
@@ -241,6 +241,9 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
+    final programCostLabel = _isCinemaPlanning(draft)
+        ? 'Film / Lizenz'
+        : 'Kuenstler / Programm';
     final items = <PlanningCostOverviewItem>[
       PlanningCostOverviewItem(
         label: 'Location / Halle',
@@ -248,11 +251,11 @@ extension on _PlanningScreenState {
         source: scenario.locationName,
       ),
       PlanningCostOverviewItem(
-        label: 'Kuenstler',
+        label: programCostLabel,
         amountEur: _artistCostForScenario(draft, scenario),
         source: _artistCostItemsForDraft(draft).isEmpty
             ? 'Szenario-Platzhalter'
-            : 'Kuenstler-Tab',
+            : 'Programm-Tab',
       ),
       PlanningCostOverviewItem(
         label: 'Technik',
@@ -656,5 +659,12 @@ extension on _PlanningScreenState {
         _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
     final normalPrice = _normalPriceEurForScenario(draft, scenario);
     return 'Das ausgewaehlte Szenario braucht bei ${_scenarioTargetAttendees(scenario)} zahlenden Early Birds ${formatEuro(required)} bis Break-even. Danach liegt der Normalpreis bei ${formatEuro(normalPrice)}.';
+  }
+
+  bool _isCinemaPlanning(PlanningDraft draft) {
+    final text = '${draft.title} ${draft.format}'.toLowerCase();
+    return draft.category == EventCategory.movie ||
+        text.contains('kino') ||
+        text.contains('film');
   }
 }

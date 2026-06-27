@@ -45,7 +45,7 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
       children: [
         _sectionCard(
           context,
-          title: 'Kuenstlerkosten brutto',
+          title: '${_programCostLabel} brutto',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -80,9 +80,7 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
               ),
               const SizedBox(height: 12),
               if (_items.isEmpty)
-                const Text(
-                  'Noch keine Kuenstlerpositionen angelegt. Fuege z. B. Hauptact, Support, DJ, Reise, Hotel oder Backstage hinzu.',
-                )
+                Text(_emptyProgramText)
               else
                 for (final item in _items)
                   Padding(
@@ -114,6 +112,27 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
       0,
       (total, item) => total + item.grossAmountEur,
     );
+  }
+
+  bool get _isCinemaPlanning {
+    final text = '${widget.draft.title} ${widget.draft.format}'.toLowerCase();
+    return widget.draft.category == EventCategory.movie ||
+        text.contains('kino') ||
+        text.contains('film');
+  }
+
+  String get _programCostLabel {
+    if (_isCinemaPlanning) {
+      return 'Film- und Programmkosten';
+    }
+    return 'Kuenstler- und Programmkosten';
+  }
+
+  String get _emptyProgramText {
+    if (_isCinemaPlanning) {
+      return 'Noch keine Film- oder Programmpositionen angelegt. Fuege z. B. Filmrechte, Vorfuehrlizenz oder Begleitprogramm hinzu.';
+    }
+    return 'Noch keine Kuenstlerpositionen angelegt. Fuege z. B. Hauptact, Support, DJ, Reise, Hotel oder Backstage hinzu.';
   }
 
   void _addItem() {

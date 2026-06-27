@@ -32,6 +32,56 @@ const List<PlanningDraft> planningSandboxDrafts = [
     fixedSponsorAmountEur: 1500,
     supporterAmountEur: 2500,
     grantAmountEur: 1000,
+    artistCostItems: [
+      PlanningArtistCostItem(
+        id: 'vengaboys-main-act',
+        label: 'Kuenstlergage Vengaboys',
+        type: PlanningArtistCostType.mainActFee,
+        grossAmountEur: 22000,
+        note: 'Platzhalter fuer Gage bis zum echten Angebot.',
+      ),
+      PlanningArtistCostItem(
+        id: 'vengaboys-travel',
+        label: 'Anreise / Transfers',
+        type: PlanningArtistCostType.travel,
+        grossAmountEur: 2500,
+      ),
+      PlanningArtistCostItem(
+        id: 'vengaboys-hotel',
+        label: 'Unterkunft',
+        type: PlanningArtistCostType.hotel,
+        grossAmountEur: 1800,
+      ),
+      PlanningArtistCostItem(
+        id: 'vengaboys-backstage',
+        label: 'Backstage / Catering',
+        type: PlanningArtistCostType.backstage,
+        grossAmountEur: 900,
+      ),
+    ],
+    technologyCostItems: [
+      PlanningTechnologyCostItem(
+        id: 'vengaboys-stage',
+        label: 'Buehne / Podeste',
+        type: PlanningTechnologyCostType.stage,
+        quantity: 1,
+        grossUnitAmountEur: 1600,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'vengaboys-sound',
+        label: 'Konzert-Tonanlage',
+        type: PlanningTechnologyCostType.sound,
+        quantity: 1,
+        grossUnitAmountEur: 2400,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'vengaboys-light',
+        label: 'Showlicht',
+        type: PlanningTechnologyCostType.light,
+        quantity: 1,
+        grossUnitAmountEur: 1800,
+      ),
+    ],
     scenarios: [
       PlanningScenario(
         id: 'venue-small',
@@ -274,6 +324,36 @@ const List<PlanningDraft> planningSandboxDrafts = [
     fixedSponsorAmountEur: 500,
     supporterAmountEur: 750,
     grantAmountEur: 0,
+    artistCostItems: [
+      PlanningArtistCostItem(
+        id: 'nineties-party-dj',
+        label: 'DJ-Gage',
+        type: PlanningArtistCostType.djFee,
+        grossAmountEur: 900,
+      ),
+      PlanningArtistCostItem(
+        id: 'nineties-party-support',
+        label: 'Warm-up / Support',
+        type: PlanningArtistCostType.supportActFee,
+        grossAmountEur: 350,
+      ),
+    ],
+    technologyCostItems: [
+      PlanningTechnologyCostItem(
+        id: 'nineties-party-sound',
+        label: 'Club-Tonanlage Upgrade',
+        type: PlanningTechnologyCostType.sound,
+        quantity: 1,
+        grossUnitAmountEur: 550,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'nineties-party-light',
+        label: 'Licht / Effekte',
+        type: PlanningTechnologyCostType.light,
+        quantity: 1,
+        grossUnitAmountEur: 650,
+      ),
+    ],
     scenarios: [
       PlanningScenario(
         id: 'party-club',
@@ -499,6 +579,46 @@ const List<PlanningDraft> planningSandboxDrafts = [
     fixedSponsorAmountEur: 700,
     supporterAmountEur: 500,
     grantAmountEur: 400,
+    artistCostItems: [
+      PlanningArtistCostItem(
+        id: 'kids-cinema-film-license',
+        label: 'Filmrechte / Vorfuehrlizenz',
+        type: PlanningArtistCostType.filmLicense,
+        grossAmountEur: 350,
+        note: 'Ersetzt bei Kinoformaten die Band- oder DJ-Gage.',
+      ),
+    ],
+    technologyCostItems: [
+      PlanningTechnologyCostItem(
+        id: 'kids-cinema-projector',
+        label: 'Beamer',
+        type: PlanningTechnologyCostType.screenProjector,
+        quantity: 1,
+        grossUnitAmountEur: 180,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'kids-cinema-screen',
+        label: 'Leinwand',
+        type: PlanningTechnologyCostType.screenProjector,
+        quantity: 1,
+        grossUnitAmountEur: 120,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'kids-cinema-sound',
+        label: 'Kleine Tonanlage',
+        type: PlanningTechnologyCostType.sound,
+        quantity: 1,
+        grossUnitAmountEur: 150,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'kids-cinema-surround',
+        label: 'Surround-Option',
+        type: PlanningTechnologyCostType.surroundSound,
+        quantity: 1,
+        grossUnitAmountEur: 100,
+        note: 'Nur einplanen, wenn der Raum das sinnvoll hergibt.',
+      ),
+    ],
     scenarios: [
       PlanningScenario(
         id: 'kids-small',
@@ -670,6 +790,49 @@ const List<PlanningDraft> planningSandboxDrafts = [
     fixedSponsorAmountEur: 600,
     supporterAmountEur: 400,
     grantAmountEur: 0,
+    artistCostItems: [
+      PlanningArtistCostItem(
+        id: 'acoustic-main-act',
+        label: 'Kuenstlergage',
+        type: PlanningArtistCostType.mainActFee,
+        grossAmountEur: 1800,
+      ),
+      PlanningArtistCostItem(
+        id: 'acoustic-travel',
+        label: 'Anreise',
+        type: PlanningArtistCostType.travel,
+        grossAmountEur: 250,
+      ),
+      PlanningArtistCostItem(
+        id: 'acoustic-catering',
+        label: 'Backstage / Catering',
+        type: PlanningArtistCostType.catering,
+        grossAmountEur: 150,
+      ),
+    ],
+    technologyCostItems: [
+      PlanningTechnologyCostItem(
+        id: 'acoustic-stage',
+        label: 'Kleine Buehne / Podeste',
+        type: PlanningTechnologyCostType.stage,
+        quantity: 1,
+        grossUnitAmountEur: 250,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'acoustic-sound',
+        label: 'Akustik-Tonanlage',
+        type: PlanningTechnologyCostType.sound,
+        quantity: 1,
+        grossUnitAmountEur: 550,
+      ),
+      PlanningTechnologyCostItem(
+        id: 'acoustic-light',
+        label: 'Atmosphaerenlicht',
+        type: PlanningTechnologyCostType.light,
+        quantity: 1,
+        grossUnitAmountEur: 300,
+      ),
+    ],
     scenarios: [
       PlanningScenario(
         id: 'acoustic-small',

@@ -125,6 +125,7 @@ class PlanningDraft {
   final double supporterAmountEur;
   final double grantAmountEur;
   final List<PlanningArtistCostItem> artistCostItems;
+  final List<PlanningTechnologyCostItem> technologyCostItems;
   final List<PlanningScenario> scenarios;
   final List<PlanningPartnerProfile> partners;
   final List<PlanningUpgradeStage> upgradeStages;
@@ -159,6 +160,7 @@ class PlanningDraft {
     required this.supporterAmountEur,
     required this.grantAmountEur,
     this.artistCostItems = const [],
+    this.technologyCostItems = const [],
     required this.scenarios,
     required this.partners,
     required this.upgradeStages,
@@ -197,6 +199,7 @@ enum PlanningArtistCostType {
   backstage,
   catering,
   shuttle,
+  filmLicense,
   other,
 }
 
@@ -219,6 +222,8 @@ extension PlanningArtistCostTypeX on PlanningArtistCostType {
         return 'Catering';
       case PlanningArtistCostType.shuttle:
         return 'Shuttle';
+      case PlanningArtistCostType.filmLicense:
+        return 'Film / Lizenz';
       case PlanningArtistCostType.other:
         return 'Sonstiges';
     }
@@ -297,6 +302,7 @@ enum PlanningTechnologyCostType {
   truss,
   light,
   screenProjector,
+  surroundSound,
   other,
 }
 
@@ -313,6 +319,8 @@ extension PlanningTechnologyCostTypeX on PlanningTechnologyCostType {
         return 'Licht';
       case PlanningTechnologyCostType.screenProjector:
         return 'Leinwand / Beamer';
+      case PlanningTechnologyCostType.surroundSound:
+        return 'Surround-Ton';
       case PlanningTechnologyCostType.other:
         return 'Sonstiges';
     }
