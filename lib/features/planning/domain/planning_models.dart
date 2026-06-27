@@ -65,7 +65,7 @@ extension PlanningScenarioOptionX on PlanningScenarioOption {
       case PlanningScenarioOption.backstage:
         return 'Backstage';
       case PlanningScenarioOption.medical:
-        return 'Sanitaeter';
+        return 'Sanitäter';
       case PlanningScenarioOption.security:
         return 'Security';
       case PlanningScenarioOption.toilets:
@@ -88,7 +88,7 @@ extension PlanningStaffingCategoryX on PlanningStaffingCategory {
       case PlanningStaffingCategory.security:
         return 'Security';
       case PlanningStaffingCategory.medical:
-        return 'Sanitaeter';
+        return 'Sanitäter';
       case PlanningStaffingCategory.staff:
         return 'Personal';
     }

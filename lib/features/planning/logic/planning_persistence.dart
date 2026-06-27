@@ -87,6 +87,12 @@ extension on _PlanningScreenState {
     return {
       'selectedDraftId': _selectedDraftId,
       'selectedScenarioOverrides': _selectedScenarioOverrides,
+      'draftCategoryOverrides': _draftCategoryOverrides.map(
+        (draftId, category) => MapEntry(draftId, category.name),
+      ),
+      'locationNameOverrides': _locationNameOverrides,
+      'costPositionAmountOverrides': _costPositionAmountOverrides,
+      'costPositionLabelOverrides': _costPositionLabelOverrides,
       'scenarioOccupancyOverrides': _scenarioOccupancyOverrides,
       'scenarioVariableCostOverrides': _scenarioVariableCostOverrides,
       'scenarioVariableCostThresholdOverrides':
@@ -131,6 +137,18 @@ extension on _PlanningScreenState {
     _selectedScenarioOverrides
       ..clear()
       ..addAll(_stringMap(json['selectedScenarioOverrides']));
+    _draftCategoryOverrides
+      ..clear()
+      ..addAll(_eventCategoryMap(json['draftCategoryOverrides']));
+    _locationNameOverrides
+      ..clear()
+      ..addAll(_stringMap(json['locationNameOverrides']));
+    _costPositionAmountOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['costPositionAmountOverrides']));
+    _costPositionLabelOverrides
+      ..clear()
+      ..addAll(_stringMap(json['costPositionLabelOverrides']));
     _scenarioOccupancyOverrides
       ..clear()
       ..addAll(_doubleMap(json['scenarioOccupancyOverrides']));
@@ -268,6 +286,18 @@ extension on _PlanningScreenState {
       ];
     }
     return result;
+  }
+
+  Map<String, EventCategory> _eventCategoryMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+    return value.map(
+      (key, entry) => MapEntry(
+        key.toString(),
+        EventCategoryX.fromStoredValue(entry?.toString()),
+      ),
+    );
   }
 
   Map<String, List<PlanningTechnologyCostItem>> _technologyCostItemMap(

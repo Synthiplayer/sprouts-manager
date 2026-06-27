@@ -40,11 +40,6 @@ extension on _PlanningScreenState {
     return _staffingItemOverrides[item.id] ?? item.enabledByDefault;
   }
 
-  void _setStaffingItemEnabled(PlanningStaffingItem item, bool value) {
-    _staffingItemOverrides[item.id] = value;
-    _savePlanningSandboxState();
-  }
-
   List<PlanningStaffingItem> _visibleStaffingItems(
     PlanningDraft draft,
     PlanningScenario scenario,
@@ -92,16 +87,6 @@ extension on _PlanningScreenState {
         _staffingHourlyRate(item);
   }
 
-  double _visibleStaffingCostTotal(
-    PlanningDraft draft,
-    PlanningScenario scenario,
-  ) {
-    return _visibleStaffingItems(draft, scenario).fold<double>(
-      0,
-      (sum, item) => sum + _staffingItemTotal(item),
-    );
-  }
-
   double _visibleStaffingCostByCategory(
     PlanningDraft draft,
     PlanningScenario scenario,
@@ -110,33 +95,6 @@ extension on _PlanningScreenState {
     return _visibleStaffingItems(draft, scenario)
         .where((item) => item.category == category)
         .fold<double>(0, (sum, item) => sum + _staffingItemTotal(item));
-  }
-
-  void _updateStaffingPeople(PlanningStaffingItem item, String value) {
-    final parsed = int.tryParse(value.trim());
-    if (parsed == null || parsed < 0) {
-      return;
-    }
-    _staffingPeopleOverrides[item.id] = parsed;
-    _savePlanningSandboxState();
-  }
-
-  void _updateStaffingHours(PlanningStaffingItem item, String value) {
-    final parsed = _parsePlanningNumber(value);
-    if (parsed == null || parsed < 0) {
-      return;
-    }
-    _staffingHoursOverrides[item.id] = parsed;
-    _savePlanningSandboxState();
-  }
-
-  void _updateStaffingRate(PlanningStaffingItem item, String value) {
-    final parsed = _parsePlanningNumber(value);
-    if (parsed == null || parsed < 0) {
-      return;
-    }
-    _staffingRateOverrides[item.id] = parsed;
-    _savePlanningSandboxState();
   }
 
   void _updateScenarioVariableCostPerAttendee(
@@ -206,6 +164,9 @@ extension on _PlanningScreenState {
   }
 
   double _artistCostForScenario(PlanningDraft draft, PlanningScenario scenario) {
+    if (_artistCostItemOverrides.containsKey(draft.id)) {
+      return _artistCostTotalEurForDraft(draft);
+    }
     final plannedArtistCosts = _artistCostTotalEurForDraft(draft);
     if (plannedArtistCosts <= 0) {
       return scenario.artistCostEur;
@@ -230,6 +191,9 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
+    if (_technologyCostItemOverrides.containsKey(draft.id)) {
+      return _technologyCostTotalEurForDraft(draft);
+    }
     final plannedTechnologyCosts = _technologyCostTotalEurForDraft(draft);
     if (plannedTechnologyCosts <= 0) {
       return scenario.technologyCostEur;
@@ -243,12 +207,12 @@ extension on _PlanningScreenState {
   ) {
     final programCostLabel = _isCinemaPlanning(draft)
         ? 'Film / Lizenz'
-        : 'Kuenstler / Programm';
+        : 'Künstler / Programm';
     final items = <PlanningCostOverviewItem>[
       PlanningCostOverviewItem(
         label: 'Location / Halle',
         amountEur: scenario.baseRentEur,
-        source: scenario.locationName,
+        source: _planningLocationName(draft, scenario),
       ),
       PlanningCostOverviewItem(
         label: programCostLabel,
@@ -271,7 +235,7 @@ extension on _PlanningScreenState {
           scenario,
           PlanningStaffingCategory.security,
         ),
-        source: 'aktive Security-Bloecke',
+        source: 'aktive Security-Blöcke',
       ),
       PlanningCostOverviewItem(
         label: 'Personal',
@@ -280,16 +244,16 @@ extension on _PlanningScreenState {
           scenario,
           PlanningStaffingCategory.staff,
         ),
-        source: 'aktive Personal-Bloecke',
+        source: 'aktive Personal-Blöcke',
       ),
       PlanningCostOverviewItem(
-        label: 'Sanitaeter',
+        label: 'Sanitäter',
         amountEur: _visibleStaffingCostByCategory(
           draft,
           scenario,
           PlanningStaffingCategory.medical,
         ),
-        source: 'aktive Sanitaeter-Bloecke',
+        source: 'aktive Sanitäter-Blöcke',
       ),
       PlanningCostOverviewItem(
         label: 'GEMA',
@@ -318,7 +282,7 @@ extension on _PlanningScreenState {
         PlanningCostOverviewItem(
           label: 'Toiletten',
           amountEur: scenario.toiletCostEur,
-          source: 'aktiver Chip',
+          source: 'Konfiguration',
         ),
       );
     }
@@ -328,7 +292,7 @@ extension on _PlanningScreenState {
         PlanningCostOverviewItem(
           label: 'Absperrgitter',
           amountEur: scenario.barriersCostEur,
-          source: 'aktiver Chip',
+          source: 'Konfiguration',
         ),
       );
     }
@@ -342,7 +306,32 @@ extension on _PlanningScreenState {
       ),
     );
 
-    return items.where((item) => item.amountEur > 0).toList();
+    return items
+        .map((item) => _costItemWithAmountOverride(draft, item))
+        .where((item) => item.amountEur > 0 || item.label == 'Location / Halle')
+        .toList();
+  }
+
+  PlanningCostOverviewItem _costItemWithAmountOverride(
+    PlanningDraft draft,
+    PlanningCostOverviewItem item,
+  ) {
+    final overrideAmount =
+        _costPositionAmountOverrides[_costPositionOverrideKey(draft, item.label)];
+    if (overrideAmount == null) {
+      return item;
+    }
+
+    return PlanningCostOverviewItem(
+      label: item.label,
+      amountEur: overrideAmount,
+      source: item.source,
+      isVariable: item.isVariable,
+    );
+  }
+
+  String _costPositionOverrideKey(PlanningDraft draft, String label) {
+    return '${draft.id}::$label';
   }
 
   double _staffingCostForCategory(
@@ -356,36 +345,96 @@ extension on _PlanningScreenState {
   }
 
   double _scenarioBaseCostsEur(PlanningDraft draft, PlanningScenario scenario) {
-    var total = scenario.baseRentEur +
-        _artistCostForScenario(draft, scenario) +
-        _technologyCostForScenario(draft, scenario) +
-        scenario.gemaCostEur +
-        scenario.insuranceCostEur +
-        scenario.marketingCostEur +
-        scenario.organizerWorkEur;
+    final programCostLabel = _isCinemaPlanning(draft)
+        ? 'Film / Lizenz'
+        : 'Künstler / Programm';
+    var total = _costPositionAmountForCalculation(
+          draft,
+          'Location / Halle',
+          scenario.baseRentEur,
+        ) +
+        _costPositionAmountForCalculation(
+          draft,
+          programCostLabel,
+          _artistCostForScenario(draft, scenario),
+        ) +
+        _costPositionAmountForCalculation(
+          draft,
+          'Technik',
+          _technologyCostForScenario(draft, scenario),
+        ) +
+        _costPositionAmountForCalculation(draft, 'GEMA', scenario.gemaCostEur) +
+        _costPositionAmountForCalculation(
+          draft,
+          'Versicherung',
+          scenario.insuranceCostEur,
+        ) +
+        _costPositionAmountForCalculation(
+          draft,
+          'Werbung',
+          scenario.marketingCostEur,
+        ) +
+        _costPositionAmountForCalculation(
+          draft,
+          'Veranstalterarbeit',
+          scenario.organizerWorkEur,
+        );
 
     if (_isOptionEnabled(draft, PlanningScenarioOption.security)) {
-      total += scenario.staffingItems.isNotEmpty
+      final securityCost = scenario.staffingItems.isNotEmpty
           ? _staffingCostForCategory(scenario, PlanningStaffingCategory.security)
           : scenario.securityCostEur;
+      total += _costPositionAmountForCalculation(
+        draft,
+        'Security',
+        securityCost,
+      );
     }
     if (_isOptionEnabled(draft, PlanningScenarioOption.medical)) {
-      total += scenario.staffingItems.isNotEmpty
+      final medicalCost = scenario.staffingItems.isNotEmpty
           ? _staffingCostForCategory(scenario, PlanningStaffingCategory.medical)
           : scenario.medicalCostEur;
+      total += _costPositionAmountForCalculation(
+        draft,
+        'Sanitäter',
+        medicalCost,
+      );
     }
     if (_isOptionEnabled(draft, PlanningScenarioOption.toilets)) {
-      total += scenario.toiletCostEur;
+      total += _costPositionAmountForCalculation(
+        draft,
+        'Toiletten',
+        scenario.toiletCostEur,
+      );
     }
     if (_isOptionEnabled(draft, PlanningScenarioOption.barriers)) {
-      total += scenario.barriersCostEur;
+      total += _costPositionAmountForCalculation(
+        draft,
+        'Absperrgitter',
+        scenario.barriersCostEur,
+      );
     }
 
     if (scenario.staffingItems.isNotEmpty) {
-      total += _staffingCostForCategory(scenario, PlanningStaffingCategory.staff);
+      total += _costPositionAmountForCalculation(
+        draft,
+        'Personal',
+        _staffingCostForCategory(scenario, PlanningStaffingCategory.staff),
+      );
     }
 
     return total;
+  }
+
+  double _costPositionAmountForCalculation(
+    PlanningDraft draft,
+    String label,
+    double fallbackAmountEur,
+  ) {
+    return _costPositionAmountOverrides[
+          _costPositionOverrideKey(draft, label)
+        ] ??
+        fallbackAmountEur;
   }
 
   double _scenarioVariableCostsEur(
@@ -663,7 +712,7 @@ extension on _PlanningScreenState {
 
   bool _isCinemaPlanning(PlanningDraft draft) {
     final text = '${draft.title} ${draft.format}'.toLowerCase();
-    return draft.category == EventCategory.movie ||
+    return _planningCategory(draft) == EventCategory.movie ||
         text.contains('kino') ||
         text.contains('film');
   }

@@ -24,6 +24,7 @@ part 'logic/planning_calculation_logic.dart';
 
 enum PlanningWorkspaceTab {
   main,
+  configuration,
   scenarios,
   costs,
   artists,
@@ -58,6 +59,10 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, double> _organizerSharePercentOverrides = {};
   final Map<String, double> _partnerSharePercentOverrides = {};
   final Map<String, String> _selectedScenarioOverrides = {};
+  final Map<String, EventCategory> _draftCategoryOverrides = {};
+  final Map<String, String> _locationNameOverrides = {};
+  final Map<String, double> _costPositionAmountOverrides = {};
+  final Map<String, String> _costPositionLabelOverrides = {};
   final Map<String, List<PlanningArtistCostItem>> _artistCostItemOverrides = {};
   final Map<String, List<PlanningTechnologyCostItem>>
       _technologyCostItemOverrides = {};
@@ -81,6 +86,17 @@ class _PlanningScreenState extends State<PlanningScreen> {
     setState(() {
       update?.call();
     });
+  }
+
+  EventCategory _planningCategory(PlanningDraft draft) {
+    return _draftCategoryOverrides[draft.id] ?? draft.category;
+  }
+
+  String _planningLocationName(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    return _locationNameOverrides[draft.id] ?? scenario.locationName;
   }
 
   @override
@@ -154,24 +170,15 @@ class _PlanningScreenState extends State<PlanningScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              FilledButton.tonal(
+              FilledButton.icon(
                 onPressed: () => _showPlaceholderDialog(
                   context,
-                  title: 'Aus Vorlage erstellen',
+                  title: 'Neue Planung',
                   message:
-                      'Spaeter kann hier ein neuer Planungsentwurf aus einer vorhandenen Vorlage erstellt werden.',
+                      'Als naechstes oeffnet dieser Button die Template-Auswahl mit Kacheln und der Option komplett frei zu planen.',
                 ),
-                child: const Text('Aus Vorlage erstellen'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => _showPlaceholderDialog(
-                  context,
-                  title: 'Vergangenes Event kopieren',
-                  message:
-                      'Spaeter kann hier ein frueheres Event als neue Planungsvorlage uebernommen werden.',
-                ),
-                icon: const Icon(Icons.copy_all_outlined),
-                label: const Text('Vergangenes Event kopieren'),
+                icon: const Icon(Icons.add),
+                label: const Text('Neue Planung'),
               ),
             ],
           ),
@@ -197,7 +204,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: draft.category.color.withValues(alpha: 0.18),
+                      color: _planningCategory(draft).color.withValues(alpha: 0.18),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -208,7 +215,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               side: BorderSide(
-                color: isSelected ? draft.category.color : Colors.transparent,
+                color: isSelected ? _planningCategory(draft).color : Colors.transparent,
                 width: isSelected ? 2.2 : 1,
               ),
               borderRadius: BorderRadius.circular(14),
@@ -231,7 +238,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        draft.category.toChip(),
+                        _planningCategory(draft).toChip(),
                         _pill(context, draft.planningStatus),
                         _pill(context, _mainDecisionStatus(draft)),
                         if (isSelected) _pill(context, 'Ausgewaehlt'),
@@ -302,7 +309,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              draft.category.toChip(),
+              _planningCategory(draft).toChip(),
               _pill(context, draft.planningStatus),
               _pill(context, _mainDecisionStatus(draft)),
             ],
@@ -313,6 +320,10 @@ class _PlanningScreenState extends State<PlanningScreen> {
               ButtonSegment(
                 value: PlanningWorkspaceTab.main,
                 label: Text('Main'),
+              ),
+              ButtonSegment(
+                value: PlanningWorkspaceTab.configuration,
+                label: Text('Konfiguration'),
               ),
               ButtonSegment(
                 value: PlanningWorkspaceTab.scenarios,
@@ -378,6 +389,8 @@ class _PlanningScreenState extends State<PlanningScreen> {
           const SizedBox(height: 16),
           switch (_tab) {
             PlanningWorkspaceTab.main => _buildMainTab(context, draft),
+            PlanningWorkspaceTab.configuration =>
+              _buildConfigurationTab(context, draft),
             PlanningWorkspaceTab.scenarios => _buildScenariosTab(context, draft),
             PlanningWorkspaceTab.costs => PlanningCostsTab(
                 draft: draft,

@@ -45,7 +45,7 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
       children: [
         _sectionCard(
           context,
-          title: '${_programCostLabel} brutto',
+          title: '$_programCostLabel brutto',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

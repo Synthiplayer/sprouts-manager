@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sprouts_manager/features/admission/admission_mode_screen.dart';
+import 'package:sprouts_manager/features/building_blocks/presentation/screens/building_block_library_screen.dart';
 import 'package:sprouts_manager/features/events/event_management_page.dart';
-import 'package:sprouts_manager/features/locations/presentation/screens/location_management_screen.dart';
 import 'package:sprouts_manager/features/planning/planning_screen.dart';
 import 'package:sprouts_manager/pages/statistics_page.dart';
 import 'package:sprouts_manager/pages/user_management_page.dart';
@@ -20,19 +20,19 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
   Widget build(BuildContext context) {
     final pages = <Widget>[
       const PlanningScreen(),
+      const BuildingBlockLibraryScreen(),
       const EventManagementPage(),
       const AdmissionModeScreen(),
       const UserManagementPage(),
-      const LocationManagementScreen(),
       const StatisticsPage(),
     ];
 
     final labels = <String>[
       'Planung',
+      'Bausteine',
       'Events',
       'Einlass',
       'User',
-      'Locations',
       'Statistiken',
     ];
 
@@ -52,6 +52,10 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
                 label: Text('Planung'),
               ),
               NavigationRailDestination(
+                icon: Icon(Icons.dashboard_customize_outlined),
+                label: Text('Bausteine'),
+              ),
+              NavigationRailDestination(
                 icon: Icon(Icons.event),
                 label: Text('Events'),
               ),
@@ -62,10 +66,6 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
               NavigationRailDestination(
                 icon: Icon(Icons.groups),
                 label: Text('User'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.location_on),
-                label: Text('Locations'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.bar_chart),
