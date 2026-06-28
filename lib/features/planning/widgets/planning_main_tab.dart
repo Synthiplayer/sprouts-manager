@@ -21,14 +21,22 @@ class _CostPositionEditResult {
 class _PlanningLocationArea {
   final String name;
   final double squareMeters;
+  final double amountEur;
 
   const _PlanningLocationArea({
     required this.name,
     required this.squareMeters,
+    this.amountEur = 0,
   });
 }
 
 extension on _PlanningScreenState {
+  static const List<BuildingBlockCategory> _planningCatalogCategories = [
+    BuildingBlockCategory.location,
+    BuildingBlockCategory.technology,
+    BuildingBlockCategory.program,
+  ];
+
   Widget _buildMainTab(BuildContext context, PlanningDraft draft) {
     final scenario = _selectedScenario(draft);
     final earlyBirdPrice = _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
@@ -161,7 +169,7 @@ extension on _PlanningScreenState {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Die alte Chip-Logik ist hier raus. Ab jetzt wird die Planung über Karten aufgebaut, die automatisch als Location, Technik, Programm, Personal oder Kostenposition einsortiert werden.',
+                'Die Planung nutzt Bausteine aus der zentralen Baustein-Verwaltung. Neue Technik-, Programm- oder Location-Karten werden dort angelegt und erscheinen anschließend hier.',
               ),
             ],
           ),
@@ -215,203 +223,139 @@ extension on _PlanningScreenState {
   }
 
   Widget _buildPlanningCardCatalog(BuildContext context, PlanningDraft draft) {
-    return _sectionCard(
-      context,
-      title: 'Karten-Bibliothek',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _catalogGroup(
-            context,
-            title: 'Location',
-            color: Colors.blueGrey,
-            initiallyExpanded: true,
+    return ValueListenableBuilder<List<BuildingBlock>>(
+      valueListenable: buildingBlockCatalogStore,
+      builder: (context, blocks, _) {
+        return _sectionCard(
+          context,
+          title: 'Bausteine',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-          _catalogCard(
-            context,
-            title: 'Metropol',
-            category: 'Location',
-            amountLabel: 'Locationprofil',
-            color: Colors.blueGrey,
-            onAdd: () => _selectLocationScenario(draft, 'Metropol'),
-          ),
-          _catalogCard(
-            context,
-            title: 'Eventschiff',
-            category: 'Location',
-            amountLabel: 'Sonderlocation',
-            color: Colors.blueGrey,
-            onAdd: () => _showCreateLocationCardDialog(
-              draft,
-              initialLabel: 'Eventschiff',
-            ),
-          ),
-          _catalogCard(
-            context,
-            title: 'Freie Location',
-            category: 'Location',
-            amountLabel: 'editierbar',
-            color: Colors.blueGrey,
-            onAdd: () => _showCreateLocationCardDialog(
-              draft,
-              initialLabel: 'Neue Location',
-            ),
-          ),
-            ],
-          ),
-          _catalogGroup(
-            context,
-            title: 'Technik',
-            color: Colors.indigo,
-            initiallyExpanded: true,
-            children: [
-          _catalogCard(
-            context,
-            title: 'Beamer',
-            category: 'Technik',
-            amountLabel: '180 EUR',
-            color: Colors.indigo,
-            onAdd: () => _addTechnologyCatalogItem(
-              draft,
-              label: 'Beamer',
-              type: PlanningTechnologyCostType.screenProjector,
-              amountEur: 180,
-            ),
-          ),
-          _catalogCard(
-            context,
-            title: 'Leinwand',
-            category: 'Technik',
-            amountLabel: '120 EUR',
-            color: Colors.indigo,
-            onAdd: () => _addTechnologyCatalogItem(
-              draft,
-              label: 'Leinwand',
-              type: PlanningTechnologyCostType.screenProjector,
-              amountEur: 120,
-            ),
-          ),
-          _catalogCard(
-            context,
-            title: 'Kleine Tonanlage',
-            category: 'Technik',
-            amountLabel: '150 EUR',
-            color: Colors.indigo,
-            onAdd: () => _addTechnologyCatalogItem(
-              draft,
-              label: 'Kleine Tonanlage',
-              type: PlanningTechnologyCostType.sound,
-              amountEur: 150,
-            ),
-          ),
-          _catalogCard(
-            context,
-            title: 'Freie Technik',
-            category: 'Technik',
-            amountLabel: 'editierbar',
-            color: Colors.indigo,
-            onAdd: () => _showCreateTechnologyCardDialog(draft),
-          ),
-            ],
-          ),
-          _catalogGroup(
-            context,
-            title: 'Programm',
-            color: Colors.deepPurple,
-            initiallyExpanded: true,
-            children: [
-          _catalogCard(
-            context,
-            title: 'DJ',
-            category: 'Programm',
-            amountLabel: '900 EUR',
-            color: Colors.deepPurple,
-            onAdd: () => _addProgramCatalogItem(
-              draft,
-              label: 'DJ',
-              type: PlanningArtistCostType.djFee,
-              amountEur: 900,
-            ),
-          ),
-          _catalogCard(
-            context,
-            title: 'Filmrechte',
-            category: 'Programm',
-            amountLabel: '350 EUR',
-            color: Colors.red,
-            onAdd: () => _addProgramCatalogItem(
-              draft,
-              label: 'Filmrechte / Vorführlizenz',
-              type: PlanningArtistCostType.filmLicense,
-              amountEur: 350,
-            ),
-          ),
-          _catalogCard(
-            context,
-            title: 'Freies Programm',
-            category: 'Programm',
-            amountLabel: 'editierbar',
-            color: Colors.deepPurple,
-            onAdd: () => _showCreateProgramCardDialog(draft),
-          ),
-            ],
-          ),
-          _catalogGroup(
-            context,
-            title: 'Personal',
-            color: Colors.deepOrange,
-            children: [
-          _catalogCard(
-            context,
-            title: 'Barkeeper',
-            category: 'Personal',
-            amountLabel: 'editierbar',
-            color: Colors.deepOrange,
-            onAdd: () => _showPlaceholderDialog(
-              context,
-              title: 'Personal-Karte',
-              message:
-                  'Personal-Karten bekommen als nächstes Personen, Stunden, Satz, Abgabenhinweis und ein Löschsymbol.',
-            ),
-          ),
-          _catalogCard(
-            context,
-            title: 'Freies Personal',
-            category: 'Personal',
-            amountLabel: 'editierbar',
-            color: Colors.deepOrange,
-            onAdd: () => _showPlaceholderDialog(
-              context,
-              title: 'Freie Personal-Karte',
-              message:
-                  'Freie Personal-Karten bekommen als nächstes Name, Personen, Stunden, Satz und Abgabenhinweis.',
-            ),
-          ),
-            ],
-          ),
-          _catalogGroup(
-            context,
-            title: 'Freie Kosten',
-            color: Colors.green,
-            children: [
-              _catalogCard(
-                context,
-                title: 'Freie Position',
-                category: 'Kosten',
-                amountLabel: 'editierbar',
-                color: Colors.green,
-                onAdd: () => _showPlaceholderDialog(
+              for (final category in _planningCatalogCategories)
+                _catalogGroup(
                   context,
-                  title: 'Freie Karte',
-                  message:
-                      'Freie Karten bekommen als nächstes Bezeichnung, Kategorie, Betrag und Notiz.',
+                  title: category.label,
+                  color: category.color,
+                  initiallyExpanded: category == BuildingBlockCategory.location ||
+                      category == BuildingBlockCategory.technology ||
+                      category == BuildingBlockCategory.program,
+                  children: _catalogCardsForCategory(
+                    context,
+                    draft,
+                    blocks,
+                    category,
+                  ),
                 ),
-              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  List<Widget> _catalogCardsForCategory(
+    BuildContext context,
+    PlanningDraft draft,
+    List<BuildingBlock> blocks,
+    BuildingBlockCategory category,
+  ) {
+    final categoryBlocks = blocks
+        .where((block) => block.category == category)
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (categoryBlocks.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(
+            'Noch keine Bausteine angelegt.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ];
+    }
+
+    return [
+      for (final block in categoryBlocks)
+        _catalogCard(
+          context,
+          title: block.name,
+          category: block.category.label,
+          amountLabel: _buildingBlockAmountLabel(block),
+          color: block.category.color,
+          onAdd: () => _addBuildingBlockToPlanning(draft, block),
+        ),
+    ];
+  }
+
+  String _buildingBlockAmountLabel(BuildingBlock block) {
+    if (block.defaultAmountEur <= 0) {
+      return block.note.isEmpty ? 'Preis offen' : block.note;
+    }
+    return formatEuro(block.defaultAmountEur);
+  }
+
+  void _addBuildingBlockToPlanning(
+    PlanningDraft draft,
+    BuildingBlock block,
+  ) {
+    switch (block.category) {
+      case BuildingBlockCategory.location:
+        _selectLocationScenario(draft, block.name);
+        break;
+      case BuildingBlockCategory.technology:
+        _addTechnologyCatalogItem(
+          draft,
+          label: block.name,
+          type: _technologyTypeForBuildingBlock(block),
+          amountEur: block.defaultAmountEur,
+        );
+        break;
+      case BuildingBlockCategory.program:
+        _addProgramCatalogItem(
+          draft,
+          label: block.name,
+          type: _programTypeForBuildingBlock(block),
+          amountEur: block.defaultAmountEur,
+        );
+        break;
+      case BuildingBlockCategory.staff:
+      case BuildingBlockCategory.cost:
+      case BuildingBlockCategory.special:
+        break;
+    }
+  }
+
+  PlanningTechnologyCostType _technologyTypeForBuildingBlock(
+    BuildingBlock block,
+  ) {
+    final name = block.name.toLowerCase();
+    if (name.contains('ton') || name.contains('anlage')) {
+      return PlanningTechnologyCostType.sound;
+    }
+    if (name.contains('licht')) {
+      return PlanningTechnologyCostType.light;
+    }
+    if (name.contains('bühne') || name.contains('buehne')) {
+      return PlanningTechnologyCostType.stage;
+    }
+    if (name.contains('beamer') || name.contains('leinwand')) {
+      return PlanningTechnologyCostType.screenProjector;
+    }
+    return PlanningTechnologyCostType.other;
+  }
+
+  PlanningArtistCostType _programTypeForBuildingBlock(BuildingBlock block) {
+    final name = block.name.toLowerCase();
+    if (name.contains('dj')) {
+      return PlanningArtistCostType.djFee;
+    }
+    if (name.contains('film') || name.contains('lizenz')) {
+      return PlanningArtistCostType.filmLicense;
+    }
+    return PlanningArtistCostType.other;
   }
 
   Widget _catalogCard(
@@ -857,14 +801,66 @@ extension on _PlanningScreenState {
   }
 
   List<_PlanningLocationArea> _locationAreasForName(String locationName) {
-    if (locationName != 'Metropol') {
+    final locationBlock = _locationBuildingBlockForName(locationName);
+    if (locationBlock == null) {
       return const [];
     }
 
-    return const [
-      _PlanningLocationArea(name: 'Saal', squareMeters: 320),
-      _PlanningLocationArea(name: 'Außenbereich', squareMeters: 375),
+    return [
+      for (final area in locationBlock.areas)
+        _PlanningLocationArea(
+          name: area.name,
+          squareMeters: area.squareMeters,
+          amountEur: area.amountEur,
+        ),
     ];
+  }
+
+  BuildingBlock? _locationBuildingBlockForName(String locationName) {
+    for (final block in buildingBlockCatalogStore.value) {
+      if (block.category == BuildingBlockCategory.location &&
+          block.name == locationName) {
+        return block;
+      }
+    }
+    return null;
+  }
+
+  Set<String> _defaultLocationAreaNames(String locationName) {
+    final block = _locationBuildingBlockForName(locationName);
+    if (block == null || block.areas.isEmpty) {
+      return {};
+    }
+    if (block.selectedAreaNames.isNotEmpty) {
+      return {...block.selectedAreaNames};
+    }
+    return {block.areas.first.name};
+  }
+
+  double _locationAmountForAreaNames(
+    String locationName,
+    Set<String> selectedAreaNames,
+    double fallbackAmountEur,
+  ) {
+    final block = _locationBuildingBlockForName(locationName);
+    if (block == null || block.areas.isEmpty) {
+      return fallbackAmountEur;
+    }
+
+    final selectedAreas = block.areas
+        .where((area) => selectedAreaNames.contains(area.name))
+        .toList();
+    final areaAmount = selectedAreas.fold<double>(
+      0,
+      (total, area) => total + area.amountEur,
+    );
+    if (selectedAreas.isNotEmpty) {
+      return areaAmount;
+    }
+    if (block.defaultAmountEur > 0) {
+      return block.defaultAmountEur;
+    }
+    return fallbackAmountEur;
   }
 
   Widget _programPlanningBoxRow(
@@ -952,31 +948,49 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningCostOverviewItem item,
   ) async {
-    final labelController = TextEditingController(
-      text: _costPositionDisplayLabel(draft, item),
-    );
-    final amountController = TextEditingController(
-      text: _editableMoneyValue(item.amountEur),
-    );
     final currentLocationName = _planningLocationName(
       draft,
       _selectedScenario(draft),
     );
+    final isLocationItem = item.label == 'Location / Halle';
+    final labelController = TextEditingController(
+      text: isLocationItem
+          ? currentLocationName
+          : _costPositionDisplayLabel(draft, item),
+    );
     final locationAreas = item.label == 'Location / Halle'
         ? _locationAreasForName(currentLocationName)
         : const <_PlanningLocationArea>[];
-    final storedAreaNames = _locationAreaSelectionOverrides[draft.id];
+    final storedAreaNames = isLocationItem
+        ? _locationAreaSelectionOverrides[draft.id] ??
+            _defaultLocationAreaNames(currentLocationName)
+        : null;
     final selectedAreaNames = {
       ...(storedAreaNames == null || storedAreaNames.isEmpty
           ? locationAreas.map((area) => area.name)
           : storedAreaNames),
     };
+    final amountController = TextEditingController(
+      text: _editableMoneyValue(
+        isLocationItem && locationAreas.isNotEmpty
+            ? _locationAmountForAreaNames(
+                currentLocationName,
+                selectedAreaNames,
+                item.amountEur,
+              )
+            : item.amountEur,
+      ),
+    );
 
     final result = await showDialog<_CostPositionEditResult>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('${item.label} bearbeiten'),
+          title: Text(
+            isLocationItem
+                ? '$currentLocationName bearbeiten'
+                : '${item.label} bearbeiten',
+          ),
           content: SizedBox(
             width: 360,
             child: Column(
@@ -1037,10 +1051,19 @@ extension on _PlanningScreenState {
                                 } else {
                                   selectedAreaNames.remove(area.name);
                                 }
+                                amountController.text = _editableMoneyValue(
+                                  _locationAmountForAreaNames(
+                                    currentLocationName,
+                                    selectedAreaNames,
+                                    parseEuroInput(amountController.text),
+                                  ),
+                                );
                               });
                             },
                       title: Text(
-                        '${area.name} · ${area.squareMeters.toStringAsFixed(0)} m²',
+                        area.amountEur <= 0
+                            ? '${area.name} · ${area.squareMeters.toStringAsFixed(0)} m²'
+                            : '${area.name} · ${area.squareMeters.toStringAsFixed(0)} m² · ${formatEuro(area.amountEur)}',
                       ),
                     ),
                 ],
@@ -1080,10 +1103,18 @@ extension on _PlanningScreenState {
       ] = label;
       _costPositionAmountOverrides[
         _costPositionOverrideKey(draft, item.label)
-      ] = result.amountEur;
+      ] = isLocationItem && locationAreas.isNotEmpty
+          ? _locationAmountForAreaNames(
+              currentLocationName,
+              result.selectedAreaNames,
+              result.amountEur,
+            )
+          : result.amountEur;
       if (item.label == 'Location / Halle') {
         if (locationAreas.isEmpty) {
           _locationNameOverrides[draft.id] = label;
+        } else {
+          _locationNameOverrides.remove(draft.id);
         }
         if (locationAreas.isNotEmpty) {
           _locationAreaSelectionOverrides[draft.id] =
@@ -1127,9 +1158,22 @@ extension on _PlanningScreenState {
       _costPositionLabelOverrides.remove(
         _costPositionOverrideKey(draft, 'Location / Halle'),
       );
-      _costPositionAmountOverrides.remove(
-        _costPositionOverrideKey(draft, 'Location / Halle'),
-      );
+      final selectedAreaNames = _defaultLocationAreaNames(locationName);
+      if (selectedAreaNames.isEmpty) {
+        _locationAreaSelectionOverrides.remove(draft.id);
+        _costPositionAmountOverrides.remove(
+          _costPositionOverrideKey(draft, 'Location / Halle'),
+        );
+      } else {
+        _locationAreaSelectionOverrides[draft.id] = selectedAreaNames;
+        _costPositionAmountOverrides[
+          _costPositionOverrideKey(draft, 'Location / Halle')
+        ] = _locationAmountForAreaNames(
+          locationName,
+          selectedAreaNames,
+          selectedScenario.baseRentEur,
+        );
+      }
     });
     _savePlanningSandboxState();
   }
@@ -1173,26 +1217,6 @@ extension on _PlanningScreenState {
     _savePlanningSandboxState();
   }
 
-  Future<void> _showCreateTechnologyCardDialog(PlanningDraft draft) async {
-    final result = await _showNameAmountDialog(
-      context: context,
-      title: 'Freie Technik',
-      initialLabel: 'Seifenblasenmaschine',
-      initialAmountEur: 0,
-    );
-
-    if (result == null) {
-      return;
-    }
-
-    _addTechnologyCatalogItem(
-      draft,
-      label: result.label.isEmpty ? 'Freie Technik' : result.label,
-      type: PlanningTechnologyCostType.other,
-      amountEur: result.amountEur,
-    );
-  }
-
   Future<void> _showEditTechnologyCardDialog(
     PlanningDraft draft,
     PlanningTechnologyCostItem item,
@@ -1221,26 +1245,6 @@ extension on _PlanningScreenState {
       ];
     });
     _savePlanningSandboxState();
-  }
-
-  Future<void> _showCreateProgramCardDialog(PlanningDraft draft) async {
-    final result = await _showNameAmountDialog(
-      context: context,
-      title: 'Freies Programm',
-      initialLabel: 'Programmpunkt',
-      initialAmountEur: 0,
-    );
-
-    if (result == null) {
-      return;
-    }
-
-    _addProgramCatalogItem(
-      draft,
-      label: result.label.isEmpty ? 'Freies Programm' : result.label,
-      type: PlanningArtistCostType.other,
-      amountEur: result.amountEur,
-    );
   }
 
   Future<void> _showEditProgramCardDialog(

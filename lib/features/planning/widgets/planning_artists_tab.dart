@@ -58,7 +58,7 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
                 formatEuro(totalArtistDetails),
               ),
               const Text(
-                'Wenn keine Position erfasst ist, nutzt die Main-Kalkulation noch den alten Szenario-Platzhalter. Sobald hier Positionen stehen, werden diese Brutto-Werte fuer die Kuenstlerkosten verwendet.',
+                'Wenn keine Position erfasst ist, nutzt die Main-Kalkulation den Szenario-Wert. Sobald hier Positionen stehen, werden diese Brutto-Werte fuer die Kuenstlerkosten verwendet.',
               ),
             ],
           ),

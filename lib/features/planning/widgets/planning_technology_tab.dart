@@ -62,7 +62,7 @@ class _PlanningTechnologyTabState extends State<PlanningTechnologyTab> {
                 '${widget.scenario.name} - ${widget.scenario.locationName}',
               ),
               const Text(
-                'Wenn keine Position erfasst ist, nutzt die Main-Kalkulation noch den alten Szenario-Platzhalter. Sobald hier Positionen stehen, ersetzen diese Brutto-Werte die Technik-Kosten des Szenarios.',
+                'Wenn keine Position erfasst ist, nutzt die Main-Kalkulation den Szenario-Wert. Sobald hier Positionen stehen, ersetzen diese Brutto-Werte die Technik-Kosten des Szenarios.',
               ),
             ],
           ),

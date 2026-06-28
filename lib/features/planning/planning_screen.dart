@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sprouts_manager/core/domain_enums.dart';
 import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
+import 'package:sprouts_manager/features/building_blocks/domain/building_block_catalog.dart';
 import 'package:sprouts_manager/features/planning/data/planning_sandbox_drafts.dart';
 import 'package:sprouts_manager/features/planning/domain/planning_models.dart';
 import 'package:sprouts_manager/features/events/event_category_ui.dart';
@@ -77,6 +78,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
     if (_drafts.isNotEmpty) {
       _selectedDraftId = _drafts.first.id;
     }
+    buildingBlockCatalogStore.load();
     _loadPlanningSandboxState();
   }
 

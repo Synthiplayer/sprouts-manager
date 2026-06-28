@@ -211,21 +211,21 @@ extension on _PlanningScreenState {
     final items = <PlanningCostOverviewItem>[
       PlanningCostOverviewItem(
         label: 'Location / Halle',
-        amountEur: scenario.baseRentEur,
+        amountEur: _locationCostForScenario(draft, scenario),
         source: _planningLocationName(draft, scenario),
       ),
       PlanningCostOverviewItem(
         label: programCostLabel,
         amountEur: _artistCostForScenario(draft, scenario),
         source: _artistCostItemsForDraft(draft).isEmpty
-            ? 'Szenario-Platzhalter'
+            ? 'Szenario-Wert'
             : 'Programm-Tab',
       ),
       PlanningCostOverviewItem(
         label: 'Technik',
         amountEur: _technologyCostForScenario(draft, scenario),
         source: _technologyCostItemsForDraft(draft).isEmpty
-            ? 'Szenario-Platzhalter'
+            ? 'Szenario-Wert'
             : 'Technik-Tab',
       ),
       PlanningCostOverviewItem(
@@ -316,6 +316,11 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningCostOverviewItem item,
   ) {
+    if (item.label == 'Location / Halle' &&
+        _locationHasConfiguredAreas(item.source)) {
+      return item;
+    }
+
     final overrideAmount =
         _costPositionAmountOverrides[_costPositionOverrideKey(draft, item.label)];
     if (overrideAmount == null) {
@@ -328,6 +333,53 @@ extension on _PlanningScreenState {
       source: item.source,
       isVariable: item.isVariable,
     );
+  }
+
+  double _locationCostForScenario(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final locationName = _planningLocationName(draft, scenario);
+    BuildingBlock? locationBlock;
+    for (final block in buildingBlockCatalogStore.value) {
+      if (block.category == BuildingBlockCategory.location &&
+          block.name == locationName) {
+        locationBlock = block;
+        break;
+      }
+    }
+
+    if (locationBlock == null || locationBlock.areas.isEmpty) {
+      return scenario.baseRentEur;
+    }
+
+    final selectedAreaNames = _locationAreaSelectionOverrides[draft.id] ??
+        (locationBlock.selectedAreaNames.isNotEmpty
+            ? locationBlock.selectedAreaNames
+            : {locationBlock.areas.first.name});
+
+    final selectedAreas = locationBlock.areas
+        .where((area) => selectedAreaNames.contains(area.name))
+        .toList();
+    if (selectedAreas.isEmpty) {
+      return locationBlock.areas.first.amountEur;
+    }
+
+    return selectedAreas.fold<double>(
+      0,
+      (total, area) => total + area.amountEur,
+    );
+  }
+
+  bool _locationHasConfiguredAreas(String locationName) {
+    for (final block in buildingBlockCatalogStore.value) {
+      if (block.category == BuildingBlockCategory.location &&
+          block.name == locationName) {
+        return block.areas.isNotEmpty;
+      }
+    }
+
+    return false;
   }
 
   String _costPositionOverrideKey(PlanningDraft draft, String label) {
@@ -348,11 +400,7 @@ extension on _PlanningScreenState {
     final programCostLabel = _isCinemaPlanning(draft)
         ? 'Film / Lizenz'
         : 'Künstler / Programm';
-    var total = _costPositionAmountForCalculation(
-          draft,
-          'Location / Halle',
-          scenario.baseRentEur,
-        ) +
+    var total = _locationCostForScenario(draft, scenario) +
         _costPositionAmountForCalculation(
           draft,
           programCostLabel,

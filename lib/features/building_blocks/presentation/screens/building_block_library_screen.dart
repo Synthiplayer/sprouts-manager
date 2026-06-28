@@ -1,113 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sprouts_manager/core/formatters/currency_formatter.dart';
-
-enum _BuildingBlockCategory {
-  location,
-  technology,
-  program,
-  staff,
-  cost,
-  special,
-}
-
-extension on _BuildingBlockCategory {
-  String get label {
-    switch (this) {
-      case _BuildingBlockCategory.location:
-        return 'Location';
-      case _BuildingBlockCategory.technology:
-        return 'Technik';
-      case _BuildingBlockCategory.program:
-        return 'Programm';
-      case _BuildingBlockCategory.staff:
-        return 'Personal';
-      case _BuildingBlockCategory.cost:
-        return 'Kosten';
-      case _BuildingBlockCategory.special:
-        return 'Special';
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case _BuildingBlockCategory.location:
-        return Colors.blueGrey;
-      case _BuildingBlockCategory.technology:
-        return Colors.indigo;
-      case _BuildingBlockCategory.program:
-        return Colors.deepPurple;
-      case _BuildingBlockCategory.staff:
-        return Colors.deepOrange;
-      case _BuildingBlockCategory.cost:
-        return Colors.green;
-      case _BuildingBlockCategory.special:
-        return Colors.teal;
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case _BuildingBlockCategory.location:
-        return Icons.location_on_outlined;
-      case _BuildingBlockCategory.technology:
-        return Icons.settings_input_component_outlined;
-      case _BuildingBlockCategory.program:
-        return Icons.local_activity_outlined;
-      case _BuildingBlockCategory.staff:
-        return Icons.groups_outlined;
-      case _BuildingBlockCategory.cost:
-        return Icons.receipt_long_outlined;
-      case _BuildingBlockCategory.special:
-        return Icons.auto_awesome_outlined;
-    }
-  }
-}
-
-class _BuildingBlock {
-  final String id;
-  final String name;
-  final _BuildingBlockCategory category;
-  final double defaultAmountEur;
-  final String note;
-  final List<_BuildingBlockArea> areas;
-  final Set<String> selectedAreaNames;
-
-  const _BuildingBlock({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.defaultAmountEur,
-    required this.note,
-    this.areas = const [],
-    this.selectedAreaNames = const {},
-  });
-
-  _BuildingBlock copyWith({
-    Set<String>? selectedAreaNames,
-  }) {
-    return _BuildingBlock(
-      id: id,
-      name: name,
-      category: category,
-      defaultAmountEur: defaultAmountEur,
-      note: note,
-      areas: areas,
-      selectedAreaNames: selectedAreaNames ?? this.selectedAreaNames,
-    );
-  }
-}
-
-class _BuildingBlockArea {
-  final String name;
-  final double squareMeters;
-  final double amountEur;
-
-  const _BuildingBlockArea({
-    required this.name,
-    required this.squareMeters,
-    this.amountEur = 0,
-  });
-}
+import 'package:sprouts_manager/features/building_blocks/domain/building_block_catalog.dart';
 
 class BuildingBlockLibraryScreen extends StatefulWidget {
   const BuildingBlockLibraryScreen({super.key});
@@ -119,59 +12,33 @@ class BuildingBlockLibraryScreen extends StatefulWidget {
 
 class _BuildingBlockLibraryScreenState
     extends State<BuildingBlockLibraryScreen> {
-  _BuildingBlockCategory? _categoryFilter;
-  final List<_BuildingBlock> _blocks = [
-    const _BuildingBlock(
-      id: 'location-metropol',
-      name: 'Metropol',
-      category: _BuildingBlockCategory.location,
-      defaultAmountEur: 3200,
-      note: 'Locationprofil mit Halle, Kapazität und Standardmiete.',
-      areas: [
-        _BuildingBlockArea(name: 'Saal', squareMeters: 320, amountEur: 3200),
-        _BuildingBlockArea(
-          name: 'Außenbereich',
-          squareMeters: 375,
-          amountEur: 0,
-        ),
-      ],
-      selectedAreaNames: {'Saal', 'Außenbereich'},
-    ),
-    const _BuildingBlock(
-      id: 'location-event-ship',
-      name: 'Eventschiff',
-      category: _BuildingBlockCategory.location,
-      defaultAmountEur: 0,
-      note: 'Sonderlocation, Preis und Setup je Anfrage.',
-    ),
-    const _BuildingBlock(
-      id: 'technology-projector',
-      name: 'Beamer',
-      category: _BuildingBlockCategory.technology,
-      defaultAmountEur: 180,
-      note: 'Leihgerät für Kino, Seminar oder Präsentation.',
-    ),
-    const _BuildingBlock(
-      id: 'program-dj',
-      name: 'DJ',
-      category: _BuildingBlockCategory.program,
-      defaultAmountEur: 900,
-      note: 'Programmpunkt mit Standardgage.',
-    ),
-    const _BuildingBlock(
-      id: 'staff-barkeeper',
-      name: 'Barkeeper',
-      category: _BuildingBlockCategory.staff,
-      defaultAmountEur: 0,
-      note: 'Personalbaustein, Anzahl und Satz später je Planung.',
-    ),
-  ];
+  BuildingBlockCategory? _categoryFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    buildingBlockCatalogStore.addListener(_refresh);
+    buildingBlockCatalogStore.load();
+  }
+
+  @override
+  void dispose() {
+    buildingBlockCatalogStore.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final blocks = buildingBlockCatalogStore.value;
     final visibleBlocks = _categoryFilter == null
-        ? _blocks
-        : _blocks
+        ? blocks
+        : blocks
             .where((block) => block.category == _categoryFilter)
             .toList();
 
@@ -199,7 +66,7 @@ class _BuildingBlockLibraryScreenState
                 selected: _categoryFilter == null,
                 onSelected: (_) => setState(() => _categoryFilter = null),
               ),
-              for (final category in _BuildingBlockCategory.values)
+              for (final category in BuildingBlockCategory.values)
                 ChoiceChip(
                   label: Text(category.label),
                   selected: _categoryFilter == category,
@@ -239,10 +106,10 @@ class _BuildingBlockLibraryScreenState
   }
 
   Future<void> _showEditDialog({
-    _BuildingBlock? existing,
-    _BuildingBlockCategory? initialCategory,
+    BuildingBlock? existing,
+    BuildingBlockCategory? initialCategory,
   }) async {
-    final result = await showDialog<_BuildingBlock>(
+    final result = await showDialog<BuildingBlock>(
       context: context,
       builder: (_) => _BuildingBlockEditDialog(
         existing: existing,
@@ -254,17 +121,10 @@ class _BuildingBlockLibraryScreenState
       return;
     }
 
-    setState(() {
-      final index = _blocks.indexWhere((block) => block.id == result.id);
-      if (index == -1) {
-        _blocks.add(result);
-      } else {
-        _blocks[index] = result;
-      }
-    });
+    buildingBlockCatalogStore.upsert(result);
   }
 
-  Future<void> _deleteBlock(_BuildingBlock block) async {
+  Future<void> _deleteBlock(BuildingBlock block) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -287,35 +147,34 @@ class _BuildingBlockLibraryScreenState
       return;
     }
 
-    setState(() {
-      _blocks.removeWhere((current) => current.id == block.id);
-    });
+    buildingBlockCatalogStore.delete(block.id);
   }
 
   void _setAreaSelected(
-    _BuildingBlock block,
+    BuildingBlock block,
     String areaName,
     bool selected,
   ) {
     final selectedAreaNames = {...block.selectedAreaNames};
+    if (!selected &&
+        selectedAreaNames.length == 1 &&
+        selectedAreaNames.contains(areaName)) {
+      return;
+    }
     if (selected) {
       selectedAreaNames.add(areaName);
     } else {
       selectedAreaNames.remove(areaName);
     }
 
-    setState(() {
-      final index = _blocks.indexWhere((current) => current.id == block.id);
-      if (index == -1) {
-        return;
-      }
-      _blocks[index] = block.copyWith(selectedAreaNames: selectedAreaNames);
-    });
+    buildingBlockCatalogStore.upsert(
+      block.copyWith(selectedAreaNames: selectedAreaNames),
+    );
   }
 }
 
 class _BuildingBlockCard extends StatelessWidget {
-  final _BuildingBlock block;
+  final BuildingBlock block;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final void Function(String areaName, bool selected) onAreaSelectionChanged;
@@ -413,7 +272,7 @@ class _BuildingBlockCard extends StatelessWidget {
 }
 
 class _BuildingBlockAreaChip extends StatelessWidget {
-  final _BuildingBlockArea area;
+  final BuildingBlockArea area;
   final Color color;
   final bool selected;
   final ValueChanged<bool> onSelected;
@@ -444,8 +303,8 @@ class _BuildingBlockAreaChip extends StatelessWidget {
 }
 
 class _BuildingBlockEditDialog extends StatefulWidget {
-  final _BuildingBlock? existing;
-  final _BuildingBlockCategory? initialCategory;
+  final BuildingBlock? existing;
+  final BuildingBlockCategory? initialCategory;
 
   const _BuildingBlockEditDialog({
     this.existing,
@@ -462,7 +321,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
   late List<_EditableBuildingBlockArea> _areas;
-  late _BuildingBlockCategory _category;
+  late BuildingBlockCategory _category;
 
   @override
   void initState() {
@@ -474,12 +333,12 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     );
     _noteController = TextEditingController(text: current?.note ?? '');
     _areas = [
-      for (final area in current?.areas ?? const <_BuildingBlockArea>[])
+      for (final area in current?.areas ?? const <BuildingBlockArea>[])
         _EditableBuildingBlockArea.fromArea(area),
     ];
     _category = current?.category ??
         widget.initialCategory ??
-        _BuildingBlockCategory.technology;
+        BuildingBlockCategory.technology;
   }
 
   @override
@@ -512,13 +371,13 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<_BuildingBlockCategory>(
+            DropdownButtonFormField<BuildingBlockCategory>(
               initialValue: _category,
               decoration: const InputDecoration(
                 labelText: 'Kategorie',
                 border: OutlineInputBorder(),
               ),
-              items: _BuildingBlockCategory.values
+              items: BuildingBlockCategory.values
                   .map(
                     (category) => DropdownMenuItem(
                       value: category,
@@ -553,7 +412,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 border: OutlineInputBorder(),
               ),
             ),
-            if (_category == _BuildingBlockCategory.location) ...[
+            if (_category == BuildingBlockCategory.location) ...[
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -607,7 +466,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     final areas = [
       for (final area in _areas)
         if (area.nameController.text.trim().isNotEmpty)
-          _BuildingBlockArea(
+          BuildingBlockArea(
             name: area.nameController.text.trim(),
             squareMeters: _parseAmount(area.squareMetersController.text),
             amountEur: _parseAmount(area.amountController.text),
@@ -620,7 +479,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     };
 
     Navigator.of(context).pop(
-      _BuildingBlock(
+      BuildingBlock(
         id: widget.existing?.id ??
             'block-${DateTime.now().microsecondsSinceEpoch}',
         name: name,
@@ -750,7 +609,7 @@ class _EditableBuildingBlockArea {
     required this.amountController,
   });
 
-  factory _EditableBuildingBlockArea.fromArea(_BuildingBlockArea area) {
+  factory _EditableBuildingBlockArea.fromArea(BuildingBlockArea area) {
     return _EditableBuildingBlockArea(
       nameController: TextEditingController(text: area.name),
       squareMetersController: TextEditingController(
