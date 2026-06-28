@@ -91,6 +91,9 @@ extension on _PlanningScreenState {
         (draftId, category) => MapEntry(draftId, category.name),
       ),
       'locationNameOverrides': _locationNameOverrides,
+      'locationAreaSelectionOverrides': _locationAreaSelectionOverrides.map(
+        (draftId, areas) => MapEntry(draftId, areas.toList()),
+      ),
       'costPositionAmountOverrides': _costPositionAmountOverrides,
       'costPositionLabelOverrides': _costPositionLabelOverrides,
       'scenarioOccupancyOverrides': _scenarioOccupancyOverrides,
@@ -143,6 +146,9 @@ extension on _PlanningScreenState {
     _locationNameOverrides
       ..clear()
       ..addAll(_stringMap(json['locationNameOverrides']));
+    _locationAreaSelectionOverrides
+      ..clear()
+      ..addAll(_stringSetMap(json['locationAreaSelectionOverrides']));
     _costPositionAmountOverrides
       ..clear()
       ..addAll(_doubleMap(json['costPositionAmountOverrides']));
@@ -204,6 +210,24 @@ extension on _PlanningScreenState {
     return value.map(
       (key, entry) => MapEntry(key.toString(), entry.toString()),
     );
+  }
+
+  Map<String, Set<String>> _stringSetMap(Object? value) {
+    if (value is! Map) {
+      return {};
+    }
+
+    final result = <String, Set<String>>{};
+    for (final entry in value.entries) {
+      final rawAreas = entry.value;
+      if (rawAreas is! List) {
+        continue;
+      }
+      result[entry.key.toString()] = {
+        for (final area in rawAreas) area.toString(),
+      };
+    }
+    return result;
   }
 
   Map<String, double> _doubleMap(Object? value) {

@@ -61,6 +61,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, String> _selectedScenarioOverrides = {};
   final Map<String, EventCategory> _draftCategoryOverrides = {};
   final Map<String, String> _locationNameOverrides = {};
+  final Map<String, Set<String>> _locationAreaSelectionOverrides = {};
   final Map<String, double> _costPositionAmountOverrides = {};
   final Map<String, String> _costPositionLabelOverrides = {};
   final Map<String, List<PlanningArtistCostItem>> _artistCostItemOverrides = {};
@@ -96,7 +97,11 @@ class _PlanningScreenState extends State<PlanningScreen> {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    return _locationNameOverrides[draft.id] ?? scenario.locationName;
+    final locationOverride = _locationNameOverrides[draft.id];
+    if (locationOverride == null || locationOverride == 'Location / Halle') {
+      return scenario.locationName;
+    }
+    return locationOverride;
   }
 
   @override

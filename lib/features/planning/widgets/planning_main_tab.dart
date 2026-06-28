@@ -9,10 +9,22 @@ class _PlanningCatalogDragData {
 class _CostPositionEditResult {
   final String label;
   final double amountEur;
+  final Set<String> selectedAreaNames;
 
   const _CostPositionEditResult({
     required this.label,
     required this.amountEur,
+    this.selectedAreaNames = const {},
+  });
+}
+
+class _PlanningLocationArea {
+  final String name;
+  final double squareMeters;
+
+  const _PlanningLocationArea({
+    required this.name,
+    required this.squareMeters,
   });
 }
 
@@ -753,6 +765,10 @@ extension on _PlanningScreenState {
   ) {
     final color = _costPositionColor(item.label);
     final canRemove = _canRemoveCostPosition(item.label);
+    final displayLabel = item.label == 'Location / Halle'
+        ? _planningLocationName(draft, _selectedScenario(draft))
+        : _costPositionDisplayLabel(draft, item);
+    final showSource = item.label != 'Location / Halle';
 
     return GestureDetector(
       onTap: () => _showCostPositionEditDialog(context, draft, item),
@@ -773,14 +789,16 @@ extension on _PlanningScreenState {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _costPositionDisplayLabel(draft, item),
+                  displayLabel,
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${_costPositionGroup(item.label)} · ${item.source}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                if (showSource) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${_costPositionGroup(item.label)} · ${item.source}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ],
             ),
           ),
@@ -822,7 +840,6 @@ extension on _PlanningScreenState {
     return _detailPlanningBoxRow(
       context,
       label: item.label.isEmpty ? item.type.label : item.label,
-      source: 'Technik · ${item.type.label}',
       amountEur: item.grossTotalEur,
       color: Colors.indigo,
       icon: Icons.settings_input_component_outlined,
@@ -839,6 +856,17 @@ extension on _PlanningScreenState {
     );
   }
 
+  List<_PlanningLocationArea> _locationAreasForName(String locationName) {
+    if (locationName != 'Metropol') {
+      return const [];
+    }
+
+    return const [
+      _PlanningLocationArea(name: 'Saal', squareMeters: 320),
+      _PlanningLocationArea(name: 'Außenbereich', squareMeters: 375),
+    ];
+  }
+
   Widget _programPlanningBoxRow(
     BuildContext context,
     PlanningDraft draft,
@@ -847,7 +875,6 @@ extension on _PlanningScreenState {
     return _detailPlanningBoxRow(
       context,
       label: item.label.isEmpty ? item.type.label : item.label,
-      source: 'Programm · ${item.type.label}',
       amountEur: item.grossAmountEur,
       color: Colors.deepPurple,
       icon: Icons.local_activity_outlined,
@@ -867,7 +894,6 @@ extension on _PlanningScreenState {
   Widget _detailPlanningBoxRow(
     BuildContext context, {
     required String label,
-    required String source,
     required double amountEur,
     required Color color,
     required IconData icon,
@@ -896,8 +922,6 @@ extension on _PlanningScreenState {
                     label,
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  const SizedBox(height: 2),
-                  Text(source, style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ),
@@ -934,59 +958,114 @@ extension on _PlanningScreenState {
     final amountController = TextEditingController(
       text: _editableMoneyValue(item.amountEur),
     );
+    final currentLocationName = _planningLocationName(
+      draft,
+      _selectedScenario(draft),
+    );
+    final locationAreas = item.label == 'Location / Halle'
+        ? _locationAreasForName(currentLocationName)
+        : const <_PlanningLocationArea>[];
+    final storedAreaNames = _locationAreaSelectionOverrides[draft.id];
+    final selectedAreaNames = {
+      ...(storedAreaNames == null || storedAreaNames.isEmpty
+          ? locationAreas.map((area) => area.name)
+          : storedAreaNames),
+    };
 
     final result = await showDialog<_CostPositionEditResult>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('${item.label} bearbeiten'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: labelController,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-              ),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('${item.label} bearbeiten'),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: labelController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amountController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Betrag brutto',
+                    suffixText: 'EUR',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (value) {
+                    Navigator.of(dialogContext).pop(
+                      _CostPositionEditResult(
+                        label: labelController.text.trim(),
+                        amountEur: parseEuroInput(value),
+                        selectedAreaNames: selectedAreaNames,
+                      ),
+                    );
+                  },
+                ),
+                if (locationAreas.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Bereiche',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  for (final area in locationAreas)
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: selectedAreaNames.contains(area.name),
+                      onChanged: selectedAreaNames.length == 1 &&
+                              selectedAreaNames.contains(area.name)
+                          ? null
+                          : (value) {
+                              setDialogState(() {
+                                if (value == true) {
+                                  selectedAreaNames.add(area.name);
+                                } else {
+                                  selectedAreaNames.remove(area.name);
+                                }
+                              });
+                            },
+                      title: Text(
+                        '${area.name} · ${area.squareMeters.toStringAsFixed(0)} m²',
+                      ),
+                    ),
+                ],
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Betrag brutto',
-                suffixText: 'EUR',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (value) {
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () {
                 Navigator.of(dialogContext).pop(
                   _CostPositionEditResult(
                     label: labelController.text.trim(),
-                    amountEur: parseEuroInput(value),
+                    amountEur: parseEuroInput(amountController.text),
+                    selectedAreaNames: selectedAreaNames,
                   ),
                 );
               },
+              child: const Text('Speichern'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(
-                _CostPositionEditResult(
-                  label: labelController.text.trim(),
-                  amountEur: parseEuroInput(amountController.text),
-                ),
-              );
-            },
-            child: const Text('Speichern'),
-          ),
-        ],
       ),
     );
 
@@ -1003,7 +1082,15 @@ extension on _PlanningScreenState {
         _costPositionOverrideKey(draft, item.label)
       ] = result.amountEur;
       if (item.label == 'Location / Halle') {
-        _locationNameOverrides[draft.id] = label;
+        if (locationAreas.isEmpty) {
+          _locationNameOverrides[draft.id] = label;
+        }
+        if (locationAreas.isNotEmpty) {
+          _locationAreaSelectionOverrides[draft.id] =
+              result.selectedAreaNames.isEmpty
+                  ? {locationAreas.first.name}
+                  : result.selectedAreaNames;
+        }
       }
     });
     _savePlanningSandboxState();

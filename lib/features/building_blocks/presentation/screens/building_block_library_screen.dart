@@ -69,6 +69,8 @@ class _BuildingBlock {
   final _BuildingBlockCategory category;
   final double defaultAmountEur;
   final String note;
+  final List<_BuildingBlockArea> areas;
+  final Set<String> selectedAreaNames;
 
   const _BuildingBlock({
     required this.id,
@@ -76,6 +78,34 @@ class _BuildingBlock {
     required this.category,
     required this.defaultAmountEur,
     required this.note,
+    this.areas = const [],
+    this.selectedAreaNames = const {},
+  });
+
+  _BuildingBlock copyWith({
+    Set<String>? selectedAreaNames,
+  }) {
+    return _BuildingBlock(
+      id: id,
+      name: name,
+      category: category,
+      defaultAmountEur: defaultAmountEur,
+      note: note,
+      areas: areas,
+      selectedAreaNames: selectedAreaNames ?? this.selectedAreaNames,
+    );
+  }
+}
+
+class _BuildingBlockArea {
+  final String name;
+  final double squareMeters;
+  final double amountEur;
+
+  const _BuildingBlockArea({
+    required this.name,
+    required this.squareMeters,
+    this.amountEur = 0,
   });
 }
 
@@ -97,6 +127,15 @@ class _BuildingBlockLibraryScreenState
       category: _BuildingBlockCategory.location,
       defaultAmountEur: 3200,
       note: 'Locationprofil mit Halle, Kapazität und Standardmiete.',
+      areas: [
+        _BuildingBlockArea(name: 'Saal', squareMeters: 320, amountEur: 3200),
+        _BuildingBlockArea(
+          name: 'Außenbereich',
+          squareMeters: 375,
+          amountEur: 0,
+        ),
+      ],
+      selectedAreaNames: {'Saal', 'Außenbereich'},
     ),
     const _BuildingBlock(
       id: 'location-event-ship',
@@ -187,6 +226,9 @@ class _BuildingBlockLibraryScreenState
                       block: block,
                       onEdit: () => _showEditDialog(existing: block),
                       onDelete: () => _deleteBlock(block),
+                      onAreaSelectionChanged: (areaName, selected) {
+                        _setAreaSelected(block, areaName, selected);
+                      },
                     ),
                   ),
               ],
@@ -249,17 +291,40 @@ class _BuildingBlockLibraryScreenState
       _blocks.removeWhere((current) => current.id == block.id);
     });
   }
+
+  void _setAreaSelected(
+    _BuildingBlock block,
+    String areaName,
+    bool selected,
+  ) {
+    final selectedAreaNames = {...block.selectedAreaNames};
+    if (selected) {
+      selectedAreaNames.add(areaName);
+    } else {
+      selectedAreaNames.remove(areaName);
+    }
+
+    setState(() {
+      final index = _blocks.indexWhere((current) => current.id == block.id);
+      if (index == -1) {
+        return;
+      }
+      _blocks[index] = block.copyWith(selectedAreaNames: selectedAreaNames);
+    });
+  }
 }
 
 class _BuildingBlockCard extends StatelessWidget {
   final _BuildingBlock block;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final void Function(String areaName, bool selected) onAreaSelectionChanged;
 
   const _BuildingBlockCard({
     required this.block,
     required this.onEdit,
     required this.onDelete,
+    required this.onAreaSelectionChanged,
   });
 
   @override
@@ -323,8 +388,56 @@ class _BuildingBlockCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(block.note),
             ],
+            if (block.areas.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final area in block.areas)
+                    _BuildingBlockAreaChip(
+                      area: area,
+                      color: color,
+                      selected: block.selectedAreaNames.contains(area.name),
+                      onSelected: (selected) =>
+                          onAreaSelectionChanged(area.name, selected),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BuildingBlockAreaChip extends StatelessWidget {
+  final _BuildingBlockArea area;
+  final Color color;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  const _BuildingBlockAreaChip({
+    required this.area,
+    required this.color,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      selected: selected,
+      showCheckmark: true,
+      side: BorderSide(color: color.withValues(alpha: 0.45)),
+      selectedColor: color.withValues(alpha: 0.16),
+      onSelected: onSelected,
+      label: Text(
+        area.amountEur <= 0
+            ? '${area.name} · ${area.squareMeters.toStringAsFixed(0)} m² · Preis offen'
+            : '${area.name} · ${area.squareMeters.toStringAsFixed(0)} m² · ${formatEuro(area.amountEur)}',
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -348,6 +461,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
+  late List<_EditableBuildingBlockArea> _areas;
   late _BuildingBlockCategory _category;
 
   @override
@@ -359,6 +473,10 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
       text: _editableMoneyValue(current?.defaultAmountEur ?? 0),
     );
     _noteController = TextEditingController(text: current?.note ?? '');
+    _areas = [
+      for (final area in current?.areas ?? const <_BuildingBlockArea>[])
+        _EditableBuildingBlockArea.fromArea(area),
+    ];
     _category = current?.category ??
         widget.initialCategory ??
         _BuildingBlockCategory.technology;
@@ -369,6 +487,9 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     _nameController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    for (final area in _areas) {
+      area.dispose();
+    }
     super.dispose();
   }
 
@@ -377,9 +498,10 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     return AlertDialog(
       title: Text(widget.existing == null ? 'Baustein anlegen' : 'Baustein bearbeiten'),
       content: SizedBox(
-        width: 430,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: _nameController,
@@ -391,7 +513,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<_BuildingBlockCategory>(
-              value: _category,
+              initialValue: _category,
               decoration: const InputDecoration(
                 labelText: 'Kategorie',
                 border: OutlineInputBorder(),
@@ -431,7 +553,37 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 border: OutlineInputBorder(),
               ),
             ),
+            if (_category == _BuildingBlockCategory.location) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Bereiche',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _addArea,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Bereich hinzufügen'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_areas.isEmpty)
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Noch keine Bereiche angelegt.'),
+                )
+              else
+                for (var index = 0; index < _areas.length; index++)
+                  _areaEditor(index),
+            ],
           ],
+          ),
         ),
       ),
       actions: [
@@ -452,6 +604,20 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     if (name.isEmpty) {
       return;
     }
+    final areas = [
+      for (final area in _areas)
+        if (area.nameController.text.trim().isNotEmpty)
+          _BuildingBlockArea(
+            name: area.nameController.text.trim(),
+            squareMeters: _parseAmount(area.squareMetersController.text),
+            amountEur: _parseAmount(area.amountController.text),
+          ),
+    ];
+    final selectedAreaNames = {
+      for (final area in areas)
+        if (widget.existing?.selectedAreaNames.contains(area.name) ?? true)
+          area.name,
+    };
 
     Navigator.of(context).pop(
       _BuildingBlock(
@@ -461,6 +627,89 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
         category: _category,
         defaultAmountEur: _parseAmount(_amountController.text),
         note: _noteController.text.trim(),
+        areas: areas,
+        selectedAreaNames: selectedAreaNames.isEmpty && areas.isNotEmpty
+            ? {areas.first.name}
+            : selectedAreaNames,
+      ),
+    );
+  }
+
+  void _addArea() {
+    setState(() {
+      _areas.add(_EditableBuildingBlockArea.empty());
+    });
+  }
+
+  Widget _areaEditor(int index) {
+    final area = _areas[index];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: area.nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Bereich',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Bereich löschen',
+                onPressed: () {
+                  setState(() {
+                    final removed = _areas.removeAt(index);
+                    removed.dispose();
+                  });
+                },
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: area.squareMetersController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Fläche',
+                    suffixText: 'm²',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: area.amountController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Preis brutto',
+                    suffixText: 'EUR',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -483,6 +732,51 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
   }
 
   String _editableMoneyValue(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(2).replaceAll('.', ',');
+  }
+}
+
+class _EditableBuildingBlockArea {
+  final TextEditingController nameController;
+  final TextEditingController squareMetersController;
+  final TextEditingController amountController;
+
+  _EditableBuildingBlockArea({
+    required this.nameController,
+    required this.squareMetersController,
+    required this.amountController,
+  });
+
+  factory _EditableBuildingBlockArea.fromArea(_BuildingBlockArea area) {
+    return _EditableBuildingBlockArea(
+      nameController: TextEditingController(text: area.name),
+      squareMetersController: TextEditingController(
+        text: _editableNumberValue(area.squareMeters),
+      ),
+      amountController: TextEditingController(
+        text: _editableNumberValue(area.amountEur),
+      ),
+    );
+  }
+
+  factory _EditableBuildingBlockArea.empty() {
+    return _EditableBuildingBlockArea(
+      nameController: TextEditingController(),
+      squareMetersController: TextEditingController(text: '0'),
+      amountController: TextEditingController(text: '0'),
+    );
+  }
+
+  void dispose() {
+    nameController.dispose();
+    squareMetersController.dispose();
+    amountController.dispose();
+  }
+
+  static String _editableNumberValue(double value) {
     if (value == value.roundToDouble()) {
       return value.toStringAsFixed(0);
     }
