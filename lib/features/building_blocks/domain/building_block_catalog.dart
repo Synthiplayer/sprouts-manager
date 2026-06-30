@@ -12,6 +12,91 @@ enum BuildingBlockCategory {
   special,
 }
 
+enum BuildingBlockCostProfile {
+  none,
+  gema,
+}
+
+extension BuildingBlockCostProfileX on BuildingBlockCostProfile {
+  String get label {
+    switch (this) {
+      case BuildingBlockCostProfile.none:
+        return 'Allgemein';
+      case BuildingBlockCostProfile.gema:
+        return 'GEMA';
+    }
+  }
+}
+
+enum GemaMusicType {
+  live,
+  phonographic,
+}
+
+extension GemaMusicTypeX on GemaMusicType {
+  String get label {
+    switch (this) {
+      case GemaMusicType.live:
+        return 'Live';
+      case GemaMusicType.phonographic:
+        return 'Tonträger';
+    }
+  }
+}
+
+enum GemaAudienceType {
+  public,
+  closed,
+}
+
+extension GemaAudienceTypeX on GemaAudienceType {
+  String get label {
+    switch (this) {
+      case GemaAudienceType.public:
+        return 'Öffentlich';
+      case GemaAudienceType.closed:
+        return 'Geschlossen';
+    }
+  }
+}
+
+class BuildingBlockGemaConfig {
+  final GemaMusicType musicType;
+  final GemaAudienceType audienceType;
+
+  const BuildingBlockGemaConfig({
+    this.musicType = GemaMusicType.live,
+    this.audienceType = GemaAudienceType.public,
+  });
+
+  BuildingBlockGemaConfig copyWith({
+    GemaMusicType? musicType,
+    GemaAudienceType? audienceType,
+  }) {
+    return BuildingBlockGemaConfig(
+      musicType: musicType ?? this.musicType,
+      audienceType: audienceType ?? this.audienceType,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'musicType': musicType.name,
+      'audienceType': audienceType.name,
+    };
+  }
+
+  factory BuildingBlockGemaConfig.fromJson(Map<String, dynamic> json) {
+    return BuildingBlockGemaConfig(
+      musicType: _gemaMusicTypeByName(json['musicType']?.toString()) ??
+          GemaMusicType.live,
+      audienceType:
+          _gemaAudienceTypeByName(json['audienceType']?.toString()) ??
+              GemaAudienceType.public,
+    );
+  }
+}
+
 extension BuildingBlockCategoryX on BuildingBlockCategory {
   String get label {
     switch (this) {
@@ -69,37 +154,45 @@ class BuildingBlock {
   final String id;
   final String name;
   final BuildingBlockCategory category;
+  final BuildingBlockCostProfile costProfile;
   final double defaultAmountEur;
   final String note;
   final List<BuildingBlockArea> areas;
   final Set<String> selectedAreaNames;
+  final BuildingBlockGemaConfig? gemaConfig;
 
   const BuildingBlock({
     required this.id,
     required this.name,
     required this.category,
+    this.costProfile = BuildingBlockCostProfile.none,
     required this.defaultAmountEur,
     required this.note,
     this.areas = const [],
     this.selectedAreaNames = const {},
+    this.gemaConfig,
   });
 
   BuildingBlock copyWith({
     String? name,
     BuildingBlockCategory? category,
+    BuildingBlockCostProfile? costProfile,
     double? defaultAmountEur,
     String? note,
     List<BuildingBlockArea>? areas,
     Set<String>? selectedAreaNames,
+    BuildingBlockGemaConfig? gemaConfig,
   }) {
     return BuildingBlock(
       id: id,
       name: name ?? this.name,
       category: category ?? this.category,
+      costProfile: costProfile ?? this.costProfile,
       defaultAmountEur: defaultAmountEur ?? this.defaultAmountEur,
       note: note ?? this.note,
       areas: areas ?? this.areas,
       selectedAreaNames: selectedAreaNames ?? this.selectedAreaNames,
+      gemaConfig: gemaConfig ?? this.gemaConfig,
     );
   }
 
@@ -108,10 +201,12 @@ class BuildingBlock {
       'id': id,
       'name': name,
       'category': category.name,
+      'costProfile': costProfile.name,
       'defaultAmountEur': defaultAmountEur,
       'note': note,
       'areas': areas.map((area) => area.toJson()).toList(),
       'selectedAreaNames': selectedAreaNames.toList(),
+      'gemaConfig': gemaConfig?.toJson(),
     };
   }
 
@@ -121,6 +216,9 @@ class BuildingBlock {
       name: json['name']?.toString() ?? '',
       category: _buildingBlockCategoryByName(json['category']?.toString()) ??
           BuildingBlockCategory.special,
+      costProfile:
+          _buildingBlockCostProfileByName(json['costProfile']?.toString()) ??
+              BuildingBlockCostProfile.none,
       defaultAmountEur: _doubleFromJson(json['defaultAmountEur']),
       note: json['note']?.toString() ?? '',
       areas: [
@@ -136,6 +234,12 @@ class BuildingBlock {
             : [])
           areaName.toString(),
       },
+      gemaConfig: json['gemaConfig'] is Map
+          ? BuildingBlockGemaConfig.fromJson(
+              (json['gemaConfig'] as Map)
+                  .map((key, value) => MapEntry(key.toString(), value)),
+            )
+          : null,
     );
   }
 }
@@ -221,6 +325,19 @@ class BuildingBlockCatalogStore extends ValueNotifier<List<BuildingBlock>> {
       defaultAmountEur: 0,
       note: 'Personalbaustein, Anzahl und Satz später je Planung.',
     ),
+    BuildingBlock(
+      id: 'cost-gema',
+      name: 'GEMA',
+      category: BuildingBlockCategory.cost,
+      costProfile: BuildingBlockCostProfile.gema,
+      defaultAmountEur: 0,
+      note:
+          'GEMA-Baustein mit gespeicherter Vorauswahl für Musikart und Gesellschaft.',
+      gemaConfig: BuildingBlockGemaConfig(
+        musicType: GemaMusicType.live,
+        audienceType: GemaAudienceType.closed,
+      ),
+    ),
   ];
 
   Future<void> load() async {
@@ -243,13 +360,14 @@ class BuildingBlockCatalogStore extends ValueNotifier<List<BuildingBlock>> {
 
       final blocks = decoded['blocks'];
       if (blocks is List) {
-        value = [
+        final loadedBlocks = [
           for (final block in blocks)
             if (block is Map)
               BuildingBlock.fromJson(
                 block.map((key, value) => MapEntry(key.toString(), value)),
               ),
         ];
+        value = _mergeMissingDefaultBlocks(loadedBlocks);
       }
       _hasLoaded = true;
     } catch (_) {
@@ -337,6 +455,17 @@ class BuildingBlockCatalogStore extends ValueNotifier<List<BuildingBlock>> {
       // Local catalog persistence must not block the UI.
     }
   }
+
+  List<BuildingBlock> _mergeMissingDefaultBlocks(List<BuildingBlock> blocks) {
+    final knownIds = {
+      for (final block in blocks) block.id,
+    };
+    return [
+      ...blocks,
+      for (final block in _defaultBlocks)
+        if (!knownIds.contains(block.id)) block,
+    ];
+  }
 }
 
 final buildingBlockCatalogStore = BuildingBlockCatalogStore();
@@ -348,6 +477,42 @@ BuildingBlockCategory? _buildingBlockCategoryByName(String? name) {
   for (final category in BuildingBlockCategory.values) {
     if (category.name == name) {
       return category;
+    }
+  }
+  return null;
+}
+
+BuildingBlockCostProfile? _buildingBlockCostProfileByName(String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final profile in BuildingBlockCostProfile.values) {
+    if (profile.name == name) {
+      return profile;
+    }
+  }
+  return null;
+}
+
+GemaMusicType? _gemaMusicTypeByName(String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final type in GemaMusicType.values) {
+    if (type.name == name) {
+      return type;
+    }
+  }
+  return null;
+}
+
+GemaAudienceType? _gemaAudienceTypeByName(String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final type in GemaAudienceType.values) {
+    if (type.name == name) {
+      return type;
     }
   }
   return null;

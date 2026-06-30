@@ -65,6 +65,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, Set<String>> _locationAreaSelectionOverrides = {};
   final Map<String, double> _costPositionAmountOverrides = {};
   final Map<String, String> _costPositionLabelOverrides = {};
+  final Map<String, int> _selectedMainCostRowIndexes = {};
   final Map<String, List<PlanningArtistCostItem>> _artistCostItemOverrides = {};
   final Map<String, List<PlanningTechnologyCostItem>>
       _technologyCostItemOverrides = {};

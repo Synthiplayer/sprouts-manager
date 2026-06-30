@@ -340,38 +340,121 @@ extension on _PlanningScreenState {
         const SizedBox(height: 12),
         const Divider(height: 1),
         const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Position',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Quelle',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Betrag',
+                  textAlign: TextAlign.right,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
         if (items.isEmpty)
           const Text('Noch keine aktiven Kostenpositionen.')
         else
-          ...items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      item.label,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+          ...items.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            final selectionKey = '${draft.id}:${scenario.id}';
+            final selectedIndex = _selectedMainCostRowIndexes[selectionKey];
+            final isSelected = selectedIndex == index;
+            final rowTint = _planningCategory(draft).color;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    _refreshPlanningUi(() {
+                      if (isSelected) {
+                        _selectedMainCostRowIndexes.remove(selectionKey);
+                      } else {
+                        _selectedMainCostRowIndexes[selectionKey] = index;
+                      }
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      color: isSelected
+                          ? rowTint.withValues(alpha: 0.14)
+                          : Colors.transparent,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: isSelected
+                              ? rowTint.withValues(alpha: 0.5)
+                              : Theme.of(context)
+                                  .dividerColor
+                                  .withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            item.label,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: Text(item.source),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            formatEuro(item.amountEur),
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(item.source),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      formatEuro(item.amountEur),
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          }),
       ],
     );
   }

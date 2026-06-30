@@ -417,6 +417,65 @@ class PlanningCostOverviewItem {
   });
 }
 
+enum PlanningBoxItemCategory {
+  location,
+  technology,
+  program,
+  staff,
+  cost,
+}
+
+extension PlanningBoxItemCategoryX on PlanningBoxItemCategory {
+  String get label {
+    switch (this) {
+      case PlanningBoxItemCategory.location:
+        return 'Location';
+      case PlanningBoxItemCategory.technology:
+        return 'Technik';
+      case PlanningBoxItemCategory.program:
+        return 'Programm';
+      case PlanningBoxItemCategory.staff:
+        return 'Personal';
+      case PlanningBoxItemCategory.cost:
+        return 'Kosten';
+    }
+  }
+}
+
+enum PlanningBoxItemKind {
+  costPosition,
+  technologyDetail,
+  programDetail,
+}
+
+class PlanningBoxItem {
+  final String id;
+  final PlanningBoxItemCategory category;
+  final PlanningBoxItemKind kind;
+  final String label;
+  final double amountEur;
+  final String source;
+  final String costKey;
+  final String? detailItemId;
+  final bool isVariable;
+  final bool canEdit;
+  final bool canRemove;
+
+  const PlanningBoxItem({
+    required this.id,
+    required this.category,
+    required this.kind,
+    required this.label,
+    required this.amountEur,
+    required this.source,
+    required this.costKey,
+    this.detailItemId,
+    this.isVariable = false,
+    this.canEdit = true,
+    this.canRemove = false,
+  });
+}
+
 class PlanningScenario {
   final String id;
   final String name;

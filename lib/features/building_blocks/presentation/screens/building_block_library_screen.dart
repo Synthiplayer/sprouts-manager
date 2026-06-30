@@ -168,9 +168,49 @@ class _BuildingBlockLibraryScreenState
     }
 
     buildingBlockCatalogStore.upsert(
-      block.copyWith(selectedAreaNames: selectedAreaNames),
+      block.copyWith(
+        defaultAmountEur: _selectedAreaAmount(
+          block.areas,
+          selectedAreaNames,
+          block.defaultAmountEur,
+        ),
+        selectedAreaNames: selectedAreaNames,
+      ),
     );
   }
+}
+
+double _buildingBlockDisplayAmount(BuildingBlock block) {
+  return _selectedAreaAmount(
+    block.areas,
+    block.selectedAreaNames,
+    block.defaultAmountEur,
+  );
+}
+
+double _selectedAreaAmount(
+  List<BuildingBlockArea> areas,
+  Set<String> selectedAreaNames,
+  double fallbackAmountEur,
+) {
+  if (areas.isEmpty) {
+    return fallbackAmountEur;
+  }
+
+  final effectiveSelection = selectedAreaNames.isEmpty
+      ? {areas.first.name}
+      : selectedAreaNames;
+  var hasSelectedArea = false;
+  var total = 0.0;
+  for (final area in areas) {
+    if (!effectiveSelection.contains(area.name)) {
+      continue;
+    }
+    hasSelectedArea = true;
+    total += area.amountEur;
+  }
+
+  return hasSelectedArea ? total : fallbackAmountEur;
 }
 
 class _BuildingBlockCard extends StatelessWidget {
@@ -189,6 +229,7 @@ class _BuildingBlockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = block.category.color;
+    final displayAmountEur = _buildingBlockDisplayAmount(block);
 
     return Card(
       elevation: 0,
@@ -236,11 +277,24 @@ class _BuildingBlockCard extends StatelessWidget {
                   side: BorderSide(color: color.withValues(alpha: 0.55)),
                 ),
                 Text(
-                  block.defaultAmountEur <= 0
+                  displayAmountEur <= 0
                       ? 'Preis offen'
-                      : formatEuro(block.defaultAmountEur),
+                      : formatEuro(displayAmountEur),
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
+                if (block.costProfile == BuildingBlockCostProfile.gema &&
+                    block.gemaConfig != null) ...[
+                  Chip(
+                    label: Text(block.gemaConfig!.musicType.label),
+                    side: BorderSide(color: color.withValues(alpha: 0.35)),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  Chip(
+                    label: Text(block.gemaConfig!.audienceType.label),
+                    side: BorderSide(color: color.withValues(alpha: 0.35)),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ],
             ),
             if (block.note.isNotEmpty) ...[
@@ -322,6 +376,9 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
   late final TextEditingController _noteController;
   late List<_EditableBuildingBlockArea> _areas;
   late BuildingBlockCategory _category;
+  late BuildingBlockCostProfile _costProfile;
+  late GemaMusicType _gemaMusicType;
+  late GemaAudienceType _gemaAudienceType;
 
   @override
   void initState() {
@@ -339,6 +396,14 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     _category = current?.category ??
         widget.initialCategory ??
         BuildingBlockCategory.technology;
+    _costProfile = current?.costProfile ?? BuildingBlockCostProfile.none;
+    _gemaMusicType = current?.gemaConfig?.musicType ?? GemaMusicType.live;
+    _gemaAudienceType =
+        current?.gemaConfig?.audienceType ?? GemaAudienceType.public;
+    for (final area in _areas) {
+      _attachAreaListeners(area);
+    }
+    _syncDerivedAmount();
   }
 
   @override
@@ -389,15 +454,51 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 if (category == null) {
                   return;
                 }
-                setState(() => _category = category);
+                setState(() {
+                  _category = category;
+                  if (_category != BuildingBlockCategory.cost) {
+                    _costProfile = BuildingBlockCostProfile.none;
+                  }
+                  _syncDerivedAmount();
+                });
               },
             ),
+            if (_category == BuildingBlockCategory.cost) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<BuildingBlockCostProfile>(
+                initialValue: _costProfile,
+                decoration: const InputDecoration(
+                  labelText: 'Kostenprofil',
+                  border: OutlineInputBorder(),
+                ),
+                items: BuildingBlockCostProfile.values
+                    .map(
+                      (profile) => DropdownMenuItem(
+                        value: profile,
+                        child: Text(profile.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (profile) {
+                  if (profile == null) {
+                    return;
+                  }
+                  setState(() {
+                    _costProfile = profile;
+                  });
+                },
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _amountController,
+              readOnly: _derivesAmountFromAreas,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Standardbetrag brutto',
+                helperText: _derivesAmountFromAreas
+                    ? 'Bei Locations mit Bereichen aus der Vorauswahl berechnet.'
+                    : null,
                 suffixText: 'EUR',
                 border: OutlineInputBorder(),
               ),
@@ -412,6 +513,56 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 border: OutlineInputBorder(),
               ),
             ),
+            if (_isGemaProfile) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<GemaMusicType>(
+                initialValue: _gemaMusicType,
+                decoration: const InputDecoration(
+                  labelText: 'Musikart',
+                  border: OutlineInputBorder(),
+                ),
+                items: GemaMusicType.values
+                    .map(
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(type.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (type) {
+                  if (type == null) {
+                    return;
+                  }
+                  setState(() {
+                    _gemaMusicType = type;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<GemaAudienceType>(
+                initialValue: _gemaAudienceType,
+                decoration: const InputDecoration(
+                  labelText: 'Gesellschaft',
+                  border: OutlineInputBorder(),
+                ),
+                items: GemaAudienceType.values
+                    .map(
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(type.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (type) {
+                  if (type == null) {
+                    return;
+                  }
+                  setState(() {
+                    _gemaAudienceType = type;
+                  });
+                },
+              ),
+            ],
             if (_category == BuildingBlockCategory.location) ...[
               const SizedBox(height: 14),
               Row(
@@ -477,6 +628,18 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
         if (widget.existing?.selectedAreaNames.contains(area.name) ?? true)
           area.name,
     };
+    final effectiveSelectedAreaNames =
+        selectedAreaNames.isEmpty && areas.isNotEmpty
+            ? {areas.first.name}
+            : selectedAreaNames;
+    final defaultAmountEur =
+        _category == BuildingBlockCategory.location && areas.isNotEmpty
+            ? _selectedAreaAmount(
+                areas,
+                effectiveSelectedAreaNames,
+                _parseAmount(_amountController.text),
+              )
+            : _parseAmount(_amountController.text);
 
     Navigator.of(context).pop(
       BuildingBlock(
@@ -484,19 +647,30 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
             'block-${DateTime.now().microsecondsSinceEpoch}',
         name: name,
         category: _category,
-        defaultAmountEur: _parseAmount(_amountController.text),
+        costProfile:
+            _category == BuildingBlockCategory.cost
+                ? _costProfile
+                : BuildingBlockCostProfile.none,
+        defaultAmountEur: defaultAmountEur,
         note: _noteController.text.trim(),
         areas: areas,
-        selectedAreaNames: selectedAreaNames.isEmpty && areas.isNotEmpty
-            ? {areas.first.name}
-            : selectedAreaNames,
+        selectedAreaNames: effectiveSelectedAreaNames,
+        gemaConfig: _isGemaProfile
+            ? BuildingBlockGemaConfig(
+                musicType: _gemaMusicType,
+                audienceType: _gemaAudienceType,
+              )
+            : null,
       ),
     );
   }
 
   void _addArea() {
     setState(() {
-      _areas.add(_EditableBuildingBlockArea.empty());
+      final area = _EditableBuildingBlockArea.empty();
+      _attachAreaListeners(area);
+      _areas.add(area);
+      _syncDerivedAmount();
     });
   }
 
@@ -530,6 +704,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                   setState(() {
                     final removed = _areas.removeAt(index);
                     removed.dispose();
+                    _syncDerivedAmount();
                   });
                 },
                 icon: const Icon(Icons.delete_outline),
@@ -595,6 +770,54 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
       return value.toStringAsFixed(0);
     }
     return value.toStringAsFixed(2).replaceAll('.', ',');
+  }
+
+  bool get _derivesAmountFromAreas {
+    return _category == BuildingBlockCategory.location && _areas.isNotEmpty;
+  }
+
+  bool get _isGemaProfile {
+    return _category == BuildingBlockCategory.cost &&
+        _costProfile == BuildingBlockCostProfile.gema;
+  }
+
+  void _attachAreaListeners(_EditableBuildingBlockArea area) {
+    area.nameController.addListener(_syncDerivedAmount);
+    area.amountController.addListener(_syncDerivedAmount);
+  }
+
+  void _syncDerivedAmount() {
+    if (!_derivesAmountFromAreas) {
+      return;
+    }
+
+    final areas = [
+      for (final area in _areas)
+        if (area.nameController.text.trim().isNotEmpty)
+          BuildingBlockArea(
+            name: area.nameController.text.trim(),
+            squareMeters: _parseAmount(area.squareMetersController.text),
+            amountEur: _parseAmount(area.amountController.text),
+          ),
+    ];
+    final selectedAreaNames = {
+      for (final area in areas)
+        if (widget.existing?.selectedAreaNames.contains(area.name) ?? true)
+          area.name,
+    };
+    final effectiveSelectedAreaNames =
+        selectedAreaNames.isEmpty && areas.isNotEmpty
+            ? {areas.first.name}
+            : selectedAreaNames;
+    final amount = _selectedAreaAmount(
+      areas,
+      effectiveSelectedAreaNames,
+      _parseAmount(_amountController.text),
+    );
+    final text = _editableMoneyValue(amount);
+    if (_amountController.text != text) {
+      _amountController.text = text;
+    }
   }
 }
 

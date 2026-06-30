@@ -35,6 +35,7 @@ extension on _PlanningScreenState {
     BuildingBlockCategory.location,
     BuildingBlockCategory.technology,
     BuildingBlockCategory.program,
+    BuildingBlockCategory.cost,
   ];
 
   Widget _buildMainTab(BuildContext context, PlanningDraft draft) {
@@ -118,7 +119,7 @@ extension on _PlanningScreenState {
 
   Widget _buildConfigurationTab(BuildContext context, PlanningDraft draft) {
     final scenario = _selectedScenario(draft);
-    final costItems = _costOverviewItemsForScenario(draft, scenario);
+    final planningBoxItems = _planningBoxItemsForScenario(draft, scenario);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +170,7 @@ extension on _PlanningScreenState {
               ),
               const SizedBox(height: 10),
               const Text(
-                'Die Planung nutzt Bausteine aus der zentralen Baustein-Verwaltung. Neue Technik-, Programm- oder Location-Karten werden dort angelegt und erscheinen anschließend hier.',
+                'Die Planung nutzt Bausteine aus der zentralen Baustein-Verwaltung. Neue Location-, Technik-, Programm- oder Kostenkarten werden dort angelegt und erscheinen anschließend hier.',
               ),
             ],
           ),
@@ -182,7 +183,7 @@ extension on _PlanningScreenState {
             final planningBox = _buildPlanningBox(
               context,
               draft,
-              costItems,
+              planningBoxItems,
             );
 
             if (!isWide) {
@@ -239,7 +240,8 @@ extension on _PlanningScreenState {
                   color: category.color,
                   initiallyExpanded: category == BuildingBlockCategory.location ||
                       category == BuildingBlockCategory.technology ||
-                      category == BuildingBlockCategory.program,
+                      category == BuildingBlockCategory.program ||
+                      category == BuildingBlockCategory.cost,
                   children: _catalogCardsForCategory(
                     context,
                     draft,
@@ -291,10 +293,33 @@ extension on _PlanningScreenState {
   }
 
   String _buildingBlockAmountLabel(BuildingBlock block) {
-    if (block.defaultAmountEur <= 0) {
+    final amountEur = _buildingBlockAmountEur(block);
+    if (amountEur <= 0) {
       return block.note.isEmpty ? 'Preis offen' : block.note;
     }
-    return formatEuro(block.defaultAmountEur);
+    return formatEuro(amountEur);
+  }
+
+  double _buildingBlockAmountEur(BuildingBlock block) {
+    if (block.category != BuildingBlockCategory.location ||
+        block.areas.isEmpty) {
+      return block.defaultAmountEur;
+    }
+
+    final selectedAreaNames = block.selectedAreaNames.isEmpty
+        ? {block.areas.first.name}
+        : block.selectedAreaNames;
+    final selectedAreas = block.areas
+        .where((area) => selectedAreaNames.contains(area.name))
+        .toList();
+    if (selectedAreas.isEmpty) {
+      return block.defaultAmountEur;
+    }
+
+    return selectedAreas.fold<double>(
+      0,
+      (total, area) => total + area.amountEur,
+    );
   }
 
   void _addBuildingBlockToPlanning(
@@ -322,10 +347,41 @@ extension on _PlanningScreenState {
         );
         break;
       case BuildingBlockCategory.staff:
+        break;
       case BuildingBlockCategory.cost:
+        _addCostBuildingBlockToPlanning(draft, block);
+        break;
       case BuildingBlockCategory.special:
         break;
     }
+  }
+
+  void _addCostBuildingBlockToPlanning(
+    PlanningDraft draft,
+    BuildingBlock block,
+  ) {
+    final costKey = _costKeyForBuildingBlock(block);
+    final amountEur = _buildingBlockAmountEur(block);
+
+    _refreshPlanningUi(() {
+      _costPositionLabelOverrides[
+        _costPositionOverrideKey(draft, costKey)
+      ] = block.name;
+      if (amountEur > 0) {
+        _costPositionAmountOverrides[
+          _costPositionOverrideKey(draft, costKey)
+        ] = amountEur;
+      }
+    });
+    _savePlanningSandboxState();
+  }
+
+  String _costKeyForBuildingBlock(BuildingBlock block) {
+    if (block.costProfile == BuildingBlockCostProfile.gema ||
+        block.name.toLowerCase() == 'gema') {
+      return 'GEMA';
+    }
+    return block.name;
   }
 
   PlanningTechnologyCostType _technologyTypeForBuildingBlock(
@@ -531,7 +587,7 @@ extension on _PlanningScreenState {
   Widget _buildPlanningBox(
     BuildContext context,
     PlanningDraft draft,
-    List<PlanningCostOverviewItem> items,
+    List<PlanningBoxItem> items,
   ) {
     final fixedTotal = items
         .where((item) => !item.isVariable)
@@ -594,7 +650,7 @@ extension on _PlanningScreenState {
                       group,
                       items
                           .where(
-                            (item) => _costPositionGroup(item.label) == group,
+                            (item) => item.category == group,
                           )
                           .toList(),
                     ),
@@ -606,16 +662,18 @@ extension on _PlanningScreenState {
     );
   }
 
-  List<String> _orderedPlanningBoxGroups(List<PlanningCostOverviewItem> items) {
+  List<PlanningBoxItemCategory> _orderedPlanningBoxGroups(
+    List<PlanningBoxItem> items,
+  ) {
     const preferredOrder = [
-      'Location',
-      'Technik',
-      'Programm',
-      'Personal',
-      'Kosten',
+      PlanningBoxItemCategory.location,
+      PlanningBoxItemCategory.technology,
+      PlanningBoxItemCategory.program,
+      PlanningBoxItemCategory.staff,
+      PlanningBoxItemCategory.cost,
     ];
     final activeGroups = items
-        .map((item) => _costPositionGroup(item.label))
+        .map((item) => item.category)
         .toSet();
 
     return [
@@ -629,10 +687,10 @@ extension on _PlanningScreenState {
   Widget _planningBoxGroup(
     BuildContext context,
     PlanningDraft draft,
-    String group,
-    List<PlanningCostOverviewItem> items,
+    PlanningBoxItemCategory group,
+    List<PlanningBoxItem> items,
   ) {
-    final color = _costGroupColor(group);
+    final color = _planningBoxCategoryColor(group);
     final total = items.fold<double>(0, (sum, item) => sum + item.amountEur);
 
     return Container(
@@ -648,12 +706,12 @@ extension on _PlanningScreenState {
           initiallyExpanded: true,
           tilePadding: const EdgeInsets.symmetric(horizontal: 10),
           childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-          leading: Icon(_costGroupIcon(group), color: color),
+          leading: Icon(_planningBoxCategoryIcon(group), color: color),
           title: Row(
             children: [
               Expanded(
                 child: Text(
-                  group,
+                  group.label,
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
@@ -664,140 +722,196 @@ extension on _PlanningScreenState {
             ],
           ),
           children: [
-            ..._planningBoxGroupRows(context, draft, group, items),
+            for (final item in items) _planningBoxRow(context, draft, item),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _planningBoxGroupRows(
-    BuildContext context,
-    PlanningDraft draft,
-    String group,
-    List<PlanningCostOverviewItem> items,
-  ) {
-    if (group == 'Technik') {
-      final technologyItems = _technologyCostItemsForDraft(draft);
-      if (technologyItems.isNotEmpty) {
-        return [
-          for (final item in technologyItems)
-            _technologyPlanningBoxRow(context, draft, item),
-        ];
-      }
-    }
-
-    if (group == 'Programm') {
-      final programItems = _artistCostItemsForDraft(draft);
-      if (programItems.isNotEmpty) {
-        return [
-          for (final item in programItems)
-            _programPlanningBoxRow(context, draft, item),
-        ];
-      }
-    }
-
-    return [
-      for (final item in items) _planningBoxRow(context, draft, item),
-    ];
-  }
-
   Widget _planningBoxRow(
     BuildContext context,
     PlanningDraft draft,
-    PlanningCostOverviewItem item,
+    PlanningBoxItem item,
   ) {
-    final color = _costPositionColor(item.label);
-    final canRemove = _canRemoveCostPosition(item.label);
-    final displayLabel = item.label == 'Location / Halle'
-        ? _planningLocationName(draft, _selectedScenario(draft))
-        : _costPositionDisplayLabel(draft, item);
-    final showSource = item.label != 'Location / Halle';
+    final color = _planningBoxCategoryColor(item.category);
+    final showSource = item.source.isNotEmpty &&
+        item.category != PlanningBoxItemCategory.location;
 
     return GestureDetector(
-      onTap: () => _showCostPositionEditDialog(context, draft, item),
+      onTap:
+          item.canEdit ? () => _editPlanningBoxItem(context, draft, item) : null,
       child: Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        children: [
-          Icon(_costPositionIcon(item.label), color: color, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayLabel,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                if (showSource) ...[
-                  const SizedBox(height: 2),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _planningBoxCategoryIcon(item.category),
+              color: color,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    '${_costPositionGroup(item.label)} · ${item.source}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    item.label,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
+                  if (showSource) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${item.category.label} · ${item.source}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            formatEuro(item.amountEur),
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            tooltip: 'Betrag ändern',
-            onPressed: () => _showCostPositionEditDialog(
-              context,
-              draft,
-              item,
+            const SizedBox(width: 12),
+            Text(
+              formatEuro(item.amountEur),
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          IconButton(
-            tooltip: canRemove
-                ? 'Position entfernen'
-                : 'Diese Position kommt aktuell aus dem Szenario',
-            onPressed: canRemove
-                ? () => _removeCostPosition(draft, item.label)
-                : null,
-            icon: const Icon(Icons.delete_outline),
-          ),
-        ],
-      ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Betrag ändern',
+              onPressed: item.canEdit
+                  ? () => _editPlanningBoxItem(context, draft, item)
+                  : null,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            IconButton(
+              tooltip: item.canRemove
+                  ? 'Position entfernen'
+                  : 'Diese Position kommt aktuell aus dem Szenario',
+              onPressed: item.canRemove
+                  ? () => _removePlanningBoxItem(draft, item)
+                  : null,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _technologyPlanningBoxRow(
+  Future<void> _editPlanningBoxItem(
     BuildContext context,
     PlanningDraft draft,
-    PlanningTechnologyCostItem item,
+    PlanningBoxItem item,
+  ) async {
+    switch (item.kind) {
+      case PlanningBoxItemKind.costPosition:
+        await _showCostPositionEditDialog(
+          context,
+          draft,
+          _costOverviewItemForPlanningBoxItem(item),
+        );
+        return;
+      case PlanningBoxItemKind.technologyDetail:
+        final technologyItem = _technologyItemById(draft, item.detailItemId);
+        if (technologyItem == null) {
+          return;
+        }
+        await _showEditTechnologyCardDialog(draft, technologyItem);
+        return;
+      case PlanningBoxItemKind.programDetail:
+        final programItem = _programItemById(draft, item.detailItemId);
+        if (programItem == null) {
+          return;
+        }
+        await _showEditProgramCardDialog(draft, programItem);
+        return;
+    }
+  }
+
+  void _removePlanningBoxItem(PlanningDraft draft, PlanningBoxItem item) {
+    switch (item.kind) {
+      case PlanningBoxItemKind.costPosition:
+        _removeCostPosition(draft, item.costKey);
+        return;
+      case PlanningBoxItemKind.technologyDetail:
+        _removeTechnologyItem(draft, item.detailItemId);
+        return;
+      case PlanningBoxItemKind.programDetail:
+        _removeProgramItem(draft, item.detailItemId);
+        return;
+    }
+  }
+
+  PlanningCostOverviewItem _costOverviewItemForPlanningBoxItem(
+    PlanningBoxItem item,
   ) {
-    return _detailPlanningBoxRow(
-      context,
-      label: item.label.isEmpty ? item.type.label : item.label,
-      amountEur: item.grossTotalEur,
-      color: Colors.indigo,
-      icon: Icons.settings_input_component_outlined,
-      onEdit: () => _showEditTechnologyCardDialog(draft, item),
-      onDelete: () {
-        _refreshPlanningUi(() {
-          _technologyCostItemOverrides[draft.id] = [
-            for (final current in _technologyCostItemsForDraft(draft))
-              if (current.id != item.id) current,
-          ];
-        });
-        _savePlanningSandboxState();
-      },
+    return PlanningCostOverviewItem(
+      label: item.costKey,
+      amountEur: item.amountEur,
+      source: item.source,
+      isVariable: item.isVariable,
     );
+  }
+
+  PlanningTechnologyCostItem? _technologyItemById(
+    PlanningDraft draft,
+    String? itemId,
+  ) {
+    if (itemId == null) {
+      return null;
+    }
+    for (final item in _technologyCostItemsForDraft(draft)) {
+      if (item.id == itemId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  PlanningArtistCostItem? _programItemById(
+    PlanningDraft draft,
+    String? itemId,
+  ) {
+    if (itemId == null) {
+      return null;
+    }
+    for (final item in _artistCostItemsForDraft(draft)) {
+      if (item.id == itemId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  void _removeTechnologyItem(PlanningDraft draft, String? itemId) {
+    if (itemId == null) {
+      return;
+    }
+    _refreshPlanningUi(() {
+      _technologyCostItemOverrides[draft.id] = [
+        for (final current in _technologyCostItemsForDraft(draft))
+          if (current.id != itemId) current,
+      ];
+    });
+    _savePlanningSandboxState();
+  }
+
+  void _removeProgramItem(PlanningDraft draft, String? itemId) {
+    if (itemId == null) {
+      return;
+    }
+    _refreshPlanningUi(() {
+      _artistCostItemOverrides[draft.id] = [
+        for (final current in _artistCostItemsForDraft(draft))
+          if (current.id != itemId) current,
+      ];
+    });
+    _savePlanningSandboxState();
   }
 
   List<_PlanningLocationArea> _locationAreasForName(String locationName) {
@@ -863,86 +977,6 @@ extension on _PlanningScreenState {
     return fallbackAmountEur;
   }
 
-  Widget _programPlanningBoxRow(
-    BuildContext context,
-    PlanningDraft draft,
-    PlanningArtistCostItem item,
-  ) {
-    return _detailPlanningBoxRow(
-      context,
-      label: item.label.isEmpty ? item.type.label : item.label,
-      amountEur: item.grossAmountEur,
-      color: Colors.deepPurple,
-      icon: Icons.local_activity_outlined,
-      onEdit: () => _showEditProgramCardDialog(draft, item),
-      onDelete: () {
-        _refreshPlanningUi(() {
-          _artistCostItemOverrides[draft.id] = [
-            for (final current in _artistCostItemsForDraft(draft))
-              if (current.id != item.id) current,
-          ];
-        });
-        _savePlanningSandboxState();
-      },
-    );
-  }
-
-  Widget _detailPlanningBoxRow(
-    BuildContext context, {
-    required String label,
-    required double amountEur,
-    required Color color,
-    required IconData icon,
-    required VoidCallback onEdit,
-    required VoidCallback onDelete,
-  }) {
-    return GestureDetector(
-      onTap: onEdit,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.45)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              formatEuro(amountEur),
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Karte bearbeiten',
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: 'Karte entfernen',
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _showCostPositionEditDialog(
     BuildContext context,
     PlanningDraft draft,
@@ -972,13 +1006,7 @@ extension on _PlanningScreenState {
     };
     final amountController = TextEditingController(
       text: _editableMoneyValue(
-        isLocationItem && locationAreas.isNotEmpty
-            ? _locationAmountForAreaNames(
-                currentLocationName,
-                selectedAreaNames,
-                item.amountEur,
-              )
-            : item.amountEur,
+        item.amountEur,
       ),
     );
 
@@ -1103,13 +1131,7 @@ extension on _PlanningScreenState {
       ] = label;
       _costPositionAmountOverrides[
         _costPositionOverrideKey(draft, item.label)
-      ] = isLocationItem && locationAreas.isNotEmpty
-          ? _locationAmountForAreaNames(
-              currentLocationName,
-              result.selectedAreaNames,
-              result.amountEur,
-            )
-          : result.amountEur;
+      ] = result.amountEur;
       if (item.label == 'Location / Halle') {
         if (locationAreas.isEmpty) {
           _locationNameOverrides[draft.id] = label;
@@ -1393,16 +1415,6 @@ extension on _PlanningScreenState {
     _savePlanningSandboxState();
   }
 
-  bool _canRemoveCostPosition(String label) {
-    return label == 'Technik' ||
-        label == 'Künstler / Programm' ||
-        label == 'Film / Lizenz' ||
-        label == 'Security' ||
-        label == 'Sanitäter' ||
-        label == 'Toiletten' ||
-        label == 'Absperrgitter';
-  }
-
   void _removeCostPosition(
     PlanningDraft draft,
     String label,
@@ -1426,56 +1438,32 @@ extension on _PlanningScreenState {
     _savePlanningSandboxState();
   }
 
-  String _costPositionGroup(String label) {
-    if (label == 'Location / Halle') {
-      return 'Location';
-    }
-    if (label == 'Technik') {
-      return 'Technik';
-    }
-    if (label == 'Künstler / Programm' || label == 'Film / Lizenz') {
-      return 'Programm';
-    }
-    if (label == 'Security' || label == 'Sanitäter' || label == 'Personal') {
-      return 'Personal';
-    }
-    return 'Kosten';
-  }
-
-  Color _costPositionColor(String label) {
-    return _costGroupColor(_costPositionGroup(label));
-  }
-
-  Color _costGroupColor(String group) {
-    switch (group) {
-      case 'Location':
+  Color _planningBoxCategoryColor(PlanningBoxItemCategory category) {
+    switch (category) {
+      case PlanningBoxItemCategory.location:
         return Colors.blueGrey;
-      case 'Technik':
+      case PlanningBoxItemCategory.technology:
         return Colors.indigo;
-      case 'Programm':
+      case PlanningBoxItemCategory.program:
         return Colors.deepPurple;
-      case 'Personal':
+      case PlanningBoxItemCategory.staff:
         return Colors.deepOrange;
-      default:
+      case PlanningBoxItemCategory.cost:
         return Colors.green;
     }
   }
 
-  IconData _costPositionIcon(String label) {
-    return _costGroupIcon(_costPositionGroup(label));
-  }
-
-  IconData _costGroupIcon(String group) {
-    switch (group) {
-      case 'Location':
+  IconData _planningBoxCategoryIcon(PlanningBoxItemCategory category) {
+    switch (category) {
+      case PlanningBoxItemCategory.location:
         return Icons.location_on_outlined;
-      case 'Technik':
+      case PlanningBoxItemCategory.technology:
         return Icons.settings_input_component_outlined;
-      case 'Programm':
+      case PlanningBoxItemCategory.program:
         return Icons.local_activity_outlined;
-      case 'Personal':
+      case PlanningBoxItemCategory.staff:
         return Icons.groups_outlined;
-      default:
+      case PlanningBoxItemCategory.cost:
         return Icons.receipt_long_outlined;
     }
   }
