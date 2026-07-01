@@ -56,16 +56,12 @@ extension on _PlanningScreenState {
     return max(1, (scenario.capacity * _scenarioOccupancy(scenario)).round());
   }
 
-  List<PlanningArtistCostItem> _artistCostItemsForDraft(PlanningDraft draft) {
-    return _artistCostItemOverrides[draft.id] ?? draft.artistCostItems;
-  }
-
-  List<PlanningArtistCostItem> _plannedArtistCostItemsForDraft(
+  List<PlanningProgramCostItem> _plannedProgramCostItemsForDraft(
     PlanningDraft draft,
   ) {
     return [
-      for (final item in _artistCostItemOverrides[draft.id] ??
-          const <PlanningArtistCostItem>[])
+      for (final item in _programCostItemOverrides[draft.id] ??
+          draft.programCostItems)
         if (item.id.startsWith('program-') &&
             _isProgramItemBackedByBuildingBlock(item))
           item,
@@ -90,7 +86,7 @@ extension on _PlanningScreenState {
     ];
   }
 
-  bool _isProgramItemBackedByBuildingBlock(PlanningArtistCostItem item) {
+  bool _isProgramItemBackedByBuildingBlock(PlanningProgramCostItem item) {
     return _buildingBlockById(
           item.buildingBlockId,
           category: BuildingBlockCategory.program,
@@ -113,7 +109,7 @@ extension on _PlanningScreenState {
     PlanningScenario scenario,
   ) {
     final technologyItems = _plannedTechnologyCostItemsForDraft(draft);
-    final programItems = _plannedArtistCostItemsForDraft(draft);
+    final programItems = _plannedProgramCostItemsForDraft(draft);
     final locationBlock = _planningLocationBlock(draft, scenario);
     final items = <PlanningBoxItem>[
       _costPlanningBoxItem(

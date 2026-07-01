@@ -118,7 +118,7 @@ extension on _PlanningScreenState {
       'reservePercentOverrides': _reservePercentOverrides,
       'organizerSharePercentOverrides': _organizerSharePercentOverrides,
       'partnerSharePercentOverrides': _partnerSharePercentOverrides,
-      'artistCostItemOverrides': _artistCostItemOverrides.map(
+      'programCostItemOverrides': _programCostItemOverrides.map(
         (draftId, items) => MapEntry(
           draftId,
           items.map((item) => item.toJson()).toList(),
@@ -219,9 +219,9 @@ extension on _PlanningScreenState {
       ..clear()
       ..addAll(_doubleMap(json['partnerSharePercentOverrides']));
 
-    _artistCostItemOverrides
+    _programCostItemOverrides
       ..clear()
-      ..addAll(_artistCostItemMap(json['artistCostItemOverrides']));
+      ..addAll(_programCostItemMap(json['programCostItemOverrides']));
     _technologyCostItemOverrides
       ..clear()
       ..addAll(_technologyCostItemMap(json['technologyCostItemOverrides']));
@@ -313,12 +313,14 @@ extension on _PlanningScreenState {
     });
   }
 
-  Map<String, List<PlanningArtistCostItem>> _artistCostItemMap(Object? value) {
+  Map<String, List<PlanningProgramCostItem>> _programCostItemMap(
+    Object? value,
+  ) {
     if (value is! Map) {
       return {};
     }
 
-    final result = <String, List<PlanningArtistCostItem>>{};
+    final result = <String, List<PlanningProgramCostItem>>{};
     for (final draftEntry in value.entries) {
       final items = draftEntry.value;
       if (items is! List) {
@@ -327,7 +329,7 @@ extension on _PlanningScreenState {
       result[draftEntry.key.toString()] = [
         for (final item in items)
           if (item is Map)
-            PlanningArtistCostItem.fromJson(
+            PlanningProgramCostItem.fromJson(
               item.map((key, value) => MapEntry(key.toString(), value)),
             ),
       ];

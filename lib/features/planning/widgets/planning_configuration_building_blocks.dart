@@ -206,15 +206,15 @@ extension on _PlanningScreenState {
     return PlanningTechnologyCostType.other;
   }
 
-  PlanningArtistCostType _programTypeForBuildingBlock(BuildingBlock block) {
+  PlanningProgramCostType _programTypeForBuildingBlock(BuildingBlock block) {
     final name = block.name.toLowerCase();
     if (name.contains('dj')) {
-      return PlanningArtistCostType.djFee;
+      return PlanningProgramCostType.dj;
     }
     if (name.contains('film') || name.contains('lizenz')) {
-      return PlanningArtistCostType.filmLicense;
+      return PlanningProgramCostType.filmLicense;
     }
-    return PlanningArtistCostType.other;
+    return PlanningProgramCostType.act;
   }
 
   Widget _catalogCard(

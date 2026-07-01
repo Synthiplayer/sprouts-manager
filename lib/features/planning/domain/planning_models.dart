@@ -66,7 +66,7 @@ class PlanningDraft {
   final double fixedSponsorAmountEur;
   final double supporterAmountEur;
   final double grantAmountEur;
-  final List<PlanningArtistCostItem> artistCostItems;
+  final List<PlanningProgramCostItem> programCostItems;
   final List<PlanningTechnologyCostItem> technologyCostItems;
   final List<PlanningScenario> scenarios;
   final List<PlanningPartnerProfile> partners;
@@ -96,7 +96,7 @@ class PlanningDraft {
     required this.fixedSponsorAmountEur,
     required this.supporterAmountEur,
     required this.grantAmountEur,
-    this.artistCostItems = const [],
+    this.programCostItems = const [],
     this.technologyCostItems = const [],
     required this.scenarios,
     required this.partners,
@@ -127,55 +127,37 @@ class PlanningDraft {
   }
 }
 
-enum PlanningArtistCostType {
-  mainActFee,
-  supportActFee,
-  djFee,
-  travel,
-  hotel,
-  backstage,
-  catering,
-  shuttle,
+enum PlanningProgramCostType {
+  act,
+  dj,
   filmLicense,
   other,
 }
 
-extension PlanningArtistCostTypeX on PlanningArtistCostType {
+extension PlanningProgramCostTypeX on PlanningProgramCostType {
   String get label {
     switch (this) {
-      case PlanningArtistCostType.mainActFee:
-        return 'Hauptact';
-      case PlanningArtistCostType.supportActFee:
-        return 'Support';
-      case PlanningArtistCostType.djFee:
+      case PlanningProgramCostType.act:
+        return 'Künstler / Act';
+      case PlanningProgramCostType.dj:
         return 'DJ';
-      case PlanningArtistCostType.travel:
-        return 'Reise';
-      case PlanningArtistCostType.hotel:
-        return 'Hotel';
-      case PlanningArtistCostType.backstage:
-        return 'Backstage';
-      case PlanningArtistCostType.catering:
-        return 'Catering';
-      case PlanningArtistCostType.shuttle:
-        return 'Shuttle';
-      case PlanningArtistCostType.filmLicense:
+      case PlanningProgramCostType.filmLicense:
         return 'Film / Lizenz';
-      case PlanningArtistCostType.other:
-        return 'Sonstiges';
+      case PlanningProgramCostType.other:
+        return 'Programm';
     }
   }
 }
 
-class PlanningArtistCostItem {
+class PlanningProgramCostItem {
   final String id;
   final String label;
-  final PlanningArtistCostType type;
+  final PlanningProgramCostType type;
   final double grossAmountEur;
   final String buildingBlockId;
   final String note;
 
-  const PlanningArtistCostItem({
+  const PlanningProgramCostItem({
     required this.id,
     required this.label,
     required this.type,
@@ -184,14 +166,14 @@ class PlanningArtistCostItem {
     this.note = '',
   });
 
-  PlanningArtistCostItem copyWith({
+  PlanningProgramCostItem copyWith({
     String? label,
-    PlanningArtistCostType? type,
+    PlanningProgramCostType? type,
     double? grossAmountEur,
     String? buildingBlockId,
     String? note,
   }) {
-    return PlanningArtistCostItem(
+    return PlanningProgramCostItem(
       id: id,
       label: label ?? this.label,
       type: type ?? this.type,
@@ -212,12 +194,12 @@ class PlanningArtistCostItem {
     };
   }
 
-  factory PlanningArtistCostItem.fromJson(Map<String, dynamic> json) {
-    return PlanningArtistCostItem(
+  factory PlanningProgramCostItem.fromJson(Map<String, dynamic> json) {
+    return PlanningProgramCostItem(
       id: json['id']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
-      type: _artistCostTypeByName(json['type']?.toString()) ??
-          PlanningArtistCostType.mainActFee,
+      type: _programCostTypeByName(json['type']?.toString()) ??
+          PlanningProgramCostType.act,
       grossAmountEur: json['grossAmountEur'] is num
           ? (json['grossAmountEur'] as num).toDouble()
           : double.tryParse('${json['grossAmountEur']}') ?? 0,
@@ -227,11 +209,11 @@ class PlanningArtistCostItem {
   }
 }
 
-PlanningArtistCostType? _artistCostTypeByName(String? name) {
+PlanningProgramCostType? _programCostTypeByName(String? name) {
   if (name == null) {
     return null;
   }
-  for (final type in PlanningArtistCostType.values) {
+  for (final type in PlanningProgramCostType.values) {
     if (type.name == name) {
       return type;
     }

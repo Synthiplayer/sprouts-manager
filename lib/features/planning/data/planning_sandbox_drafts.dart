@@ -27,33 +27,6 @@ const List<PlanningDraft> planningSandboxDrafts = [
     fixedSponsorAmountEur: 1500,
     supporterAmountEur: 2500,
     grantAmountEur: 1000,
-    artistCostItems: [
-      PlanningArtistCostItem(
-        id: 'vengaboys-main-act',
-        label: 'Kuenstlergage Vengaboys',
-        type: PlanningArtistCostType.mainActFee,
-        grossAmountEur: 22000,
-        note: 'Gage nach verbindlichem Angebot prüfen.',
-      ),
-      PlanningArtistCostItem(
-        id: 'vengaboys-travel',
-        label: 'Anreise / Transfers',
-        type: PlanningArtistCostType.travel,
-        grossAmountEur: 2500,
-      ),
-      PlanningArtistCostItem(
-        id: 'vengaboys-hotel',
-        label: 'Unterkunft',
-        type: PlanningArtistCostType.hotel,
-        grossAmountEur: 1800,
-      ),
-      PlanningArtistCostItem(
-        id: 'vengaboys-backstage',
-        label: 'Backstage / Catering',
-        type: PlanningArtistCostType.backstage,
-        grossAmountEur: 900,
-      ),
-    ],
     technologyCostItems: [
       PlanningTechnologyCostItem(
         id: 'vengaboys-stage',

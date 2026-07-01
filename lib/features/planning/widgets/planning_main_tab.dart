@@ -219,14 +219,14 @@ extension on _PlanningScreenState {
     return null;
   }
 
-  PlanningArtistCostItem? _programItemById(
+  PlanningProgramCostItem? _programItemById(
     PlanningDraft draft,
     String? itemId,
   ) {
     if (itemId == null) {
       return null;
     }
-    for (final item in _plannedArtistCostItemsForDraft(draft)) {
+    for (final item in _plannedProgramCostItemsForDraft(draft)) {
       if (item.id == itemId) {
         return item;
       }
@@ -252,8 +252,8 @@ extension on _PlanningScreenState {
       return;
     }
     _refreshPlanningUi(() {
-      _artistCostItemOverrides[draft.id] = [
-        for (final current in _plannedArtistCostItemsForDraft(draft))
+      _programCostItemOverrides[draft.id] = [
+        for (final current in _plannedProgramCostItemsForDraft(draft))
           if (current.id != itemId) current,
       ];
     });
@@ -336,9 +336,7 @@ extension on _PlanningScreenState {
           : storedAreaNames),
     };
     final amountController = TextEditingController(
-      text: _editableMoneyValue(
-        item.amountEur,
-      ),
+      text: item.amountEur == 0 ? '' : _editableMoneyValue(item.amountEur),
     );
     final staffPeopleController = TextEditingController(
       text: isStaffItem ? '${_staffPeopleCount(draft, item.costKey)}' : '1',
@@ -419,6 +417,7 @@ extension on _PlanningScreenState {
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'Betrag brutto',
+                    hintText: '0',
                     suffixText: 'EUR',
                     border: OutlineInputBorder(),
                   ),
@@ -599,12 +598,18 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningTechnologyCostItem item,
   ) async {
+    final fallbackLabel = item.type.label;
+    final initialLabel = item.label.isEmpty ? fallbackLabel : item.label;
+    final useLabelAsHint =
+        item.grossUnitAmountEur == 0 && initialLabel == fallbackLabel;
     final result = await _showNameAmountQuantityDialog(
       context: context,
       title: 'Technik bearbeiten',
-      initialLabel: item.label.isEmpty ? item.type.label : item.label,
+      initialLabel: useLabelAsHint ? '' : initialLabel,
+      labelHint: useLabelAsHint ? initialLabel : null,
       initialQuantity: item.quantity,
       initialUnitAmountEur: item.grossUnitAmountEur,
+      showZeroAmountAsHint: true,
     );
 
     if (result == null) {
@@ -629,13 +634,19 @@ extension on _PlanningScreenState {
 
   Future<void> _showEditProgramCardDialog(
     PlanningDraft draft,
-    PlanningArtistCostItem item,
+    PlanningProgramCostItem item,
   ) async {
+    final fallbackLabel = item.type.label;
+    final initialLabel = item.label.isEmpty ? fallbackLabel : item.label;
+    final useLabelAsHint =
+        item.grossAmountEur == 0 && initialLabel == fallbackLabel;
     final result = await _showNameAmountDialog(
       context: context,
       title: 'Programm bearbeiten',
-      initialLabel: item.label.isEmpty ? item.type.label : item.label,
+      initialLabel: useLabelAsHint ? '' : initialLabel,
+      labelHint: useLabelAsHint ? initialLabel : null,
       initialAmountEur: item.grossAmountEur,
+      showZeroAmountAsHint: true,
     );
 
     if (result == null) {
@@ -643,8 +654,8 @@ extension on _PlanningScreenState {
     }
 
     _refreshPlanningUi(() {
-      _artistCostItemOverrides[draft.id] = [
-        for (final current in _plannedArtistCostItemsForDraft(draft))
+      _programCostItemOverrides[draft.id] = [
+        for (final current in _plannedProgramCostItemsForDraft(draft))
           if (current.id == item.id)
             current.copyWith(
               label: result.label.isEmpty ? current.label : result.label,
@@ -662,10 +673,14 @@ extension on _PlanningScreenState {
     required String title,
     required String initialLabel,
     required double initialAmountEur,
+    String? labelHint,
+    bool showZeroAmountAsHint = false,
   }) async {
     final labelController = TextEditingController(text: initialLabel);
     final amountController = TextEditingController(
-      text: _editableMoneyValue(initialAmountEur),
+      text: showZeroAmountAsHint && initialAmountEur == 0
+          ? ''
+          : _editableMoneyValue(initialAmountEur),
     );
 
     final result = await showDialog<_CostPositionEditResult>(
@@ -681,16 +696,19 @@ extension on _PlanningScreenState {
               decoration: const InputDecoration(
                 labelText: 'Name',
                 border: OutlineInputBorder(),
-              ),
+              ).copyWith(hintText: labelHint),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Betrag brutto',
+                hintText: showZeroAmountAsHint && initialAmountEur == 0
+                    ? '0'
+                    : null,
                 suffixText: 'EUR',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               onSubmitted: (value) {
                 Navigator.of(dialogContext).pop(
@@ -736,13 +754,17 @@ extension on _PlanningScreenState {
     required String initialLabel,
     required int initialQuantity,
     required double initialUnitAmountEur,
+    String? labelHint,
+    bool showZeroAmountAsHint = false,
   }) async {
     final labelController = TextEditingController(text: initialLabel);
     final quantityController = TextEditingController(
       text: '${initialQuantity < 1 ? 1 : initialQuantity}',
     );
     final unitAmountController = TextEditingController(
-      text: _editableMoneyValue(initialUnitAmountEur),
+      text: showZeroAmountAsHint && initialUnitAmountEur == 0
+          ? ''
+          : _editableMoneyValue(initialUnitAmountEur),
     );
     final totalController = TextEditingController(
       text: _editableMoneyValue(
@@ -790,7 +812,7 @@ extension on _PlanningScreenState {
                 decoration: const InputDecoration(
                   labelText: 'Name',
                   border: OutlineInputBorder(),
-                ),
+                ).copyWith(hintText: labelHint),
               ),
               const SizedBox(height: 12),
               Row(
@@ -812,10 +834,14 @@ extension on _PlanningScreenState {
                       controller: unitAmountController,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Einzelpreis brutto',
+                        hintText:
+                            showZeroAmountAsHint && initialUnitAmountEur == 0
+                                ? '0'
+                                : null,
                         suffixText: 'EUR',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) => refreshTotal(setDialogState),
                     ),
@@ -880,15 +906,15 @@ extension on _PlanningScreenState {
   void _addProgramCatalogItem(
     PlanningDraft draft, {
     required String label,
-    required PlanningArtistCostType type,
+    required PlanningProgramCostType type,
     required double amountEur,
     required String buildingBlockId,
   }) {
-    final currentItems = [..._plannedArtistCostItemsForDraft(draft)];
+    final currentItems = [..._plannedProgramCostItemsForDraft(draft)];
     _refreshPlanningUi(() {
-      _artistCostItemOverrides[draft.id] = [
+      _programCostItemOverrides[draft.id] = [
         ...currentItems,
-        PlanningArtistCostItem(
+        PlanningProgramCostItem(
           id: 'program-${DateTime.now().microsecondsSinceEpoch}',
           label: label,
           type: type,
