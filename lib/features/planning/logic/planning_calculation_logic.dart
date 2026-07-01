@@ -149,9 +149,7 @@ extension on _PlanningScreenState {
               ? technologyItem.type.label
               : technologyItem.label,
           amountEur: technologyItem.grossTotalEur,
-          source: technologyItem.note.isEmpty
-              ? technologyItem.type.label
-              : technologyItem.note,
+          source: _technologySourceLabel(technologyItem),
           costKey: 'Technik',
           detailItemId: technologyItem.id,
           canRemove: true,
@@ -183,6 +181,13 @@ extension on _PlanningScreenState {
     return false;
   }
 
+  String _technologySourceLabel(PlanningTechnologyCostItem item) {
+    if (item.quantity <= 1) {
+      return '';
+    }
+    return '${item.quantity} x ${formatEuro(item.grossUnitAmountEur)}';
+  }
+
   List<PlanningBoxItem> _costBuildingBlockPlanningItems(
     PlanningDraft draft,
     PlanningScenario scenario,
@@ -206,27 +211,110 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    return [
-      for (final block in buildingBlockCatalogStore.value)
-        if (block.category == BuildingBlockCategory.staff)
-          if (_isStaffBuildingBlockPlanned(draft, block))
-            _costPlanningBoxItem(
+    return _plannedStaffCostKeys(draft)
+        .map((costKey) => _staffPlanningBoxItemForCostKey(
               draft,
               scenario,
-              costKey: _staffCostKeyForBuildingBlock(block),
-              amountEur: block.defaultAmountEur,
-              source: block.note.isEmpty ? 'Baustein' : block.note,
-              canRemove: true,
-            ),
-    ];
+              costKey,
+            ))
+        .whereType<PlanningBoxItem>()
+        .toList();
+  }
+
+  PlanningBoxItem? _staffPlanningBoxItemForCostKey(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+    String costKey,
+  ) {
+    final block = _staffBuildingBlockForCostKey(costKey);
+    if (block == null) {
+      return null;
+    }
+
+    return _costPlanningBoxItem(
+      draft,
+      scenario,
+      costKey: costKey,
+      amountEur: _staffCostTotalEur(draft, costKey, block),
+      source: _staffCostSourceLabel(draft, costKey, block),
+      canRemove: true,
+    );
   }
 
   bool _isCostBuildingBlockPlanned(PlanningDraft draft, BuildingBlock block) {
     return _isPlannedCostPosition(draft, _costKeyForBuildingBlock(block));
   }
 
-  bool _isStaffBuildingBlockPlanned(PlanningDraft draft, BuildingBlock block) {
-    return _isPlannedCostPosition(draft, _staffCostKeyForBuildingBlock(block));
+  List<String> _plannedStaffCostKeys(PlanningDraft draft) {
+    final overridePrefix = '${draft.id}::$_staffCostKeyPrefix';
+    final draftPrefix = '${draft.id}::';
+    final overrideKeys = {
+      ..._costPositionLabelOverrides.keys,
+      ..._costPositionAmountOverrides.keys,
+    };
+    return [
+      for (final overrideKey in overrideKeys)
+        if (overrideKey.startsWith(overridePrefix))
+          overrideKey.substring(draftPrefix.length),
+    ]..sort();
+  }
+
+  BuildingBlock? _staffBuildingBlockForCostKey(String costKey) {
+    final blockId = _staffBlockIdFromCostKey(costKey);
+    for (final block in buildingBlockCatalogStore.value) {
+      if (block.category == BuildingBlockCategory.staff && block.id == blockId) {
+        return block;
+      }
+    }
+    return null;
+  }
+
+  int _staffPeopleCount(PlanningDraft draft, String costKey) {
+    final value =
+        _staffPeopleCountOverrides[_costPositionOverrideKey(draft, costKey)] ??
+            1;
+    return value < 1 ? 1 : value;
+  }
+
+  double _staffHours(PlanningDraft draft, String costKey) {
+    final value =
+        _staffHoursOverrides[_costPositionOverrideKey(draft, costKey)] ?? 1.0;
+    return value < 0 ? 0.0 : value;
+  }
+
+  double _staffHourlyRateEur(
+    PlanningDraft draft,
+    String costKey,
+    double fallbackRateEur,
+  ) {
+    final value =
+        _staffHourlyRateOverrides[_costPositionOverrideKey(draft, costKey)] ??
+            fallbackRateEur;
+    return value < 0 ? 0.0 : value;
+  }
+
+  double _staffCostTotalEur(
+    PlanningDraft draft,
+    String costKey,
+    BuildingBlock block,
+  ) {
+    return _staffPeopleCount(draft, costKey) *
+        _staffHours(draft, costKey) *
+        _staffHourlyRateEur(draft, costKey, block.defaultAmountEur);
+  }
+
+  String _staffCostSourceLabel(
+    PlanningDraft draft,
+    String costKey,
+    BuildingBlock block,
+  ) {
+    final people = _staffPeopleCount(draft, costKey);
+    final hours = _staffHours(draft, costKey);
+    final rate = _staffHourlyRateEur(draft, costKey, block.defaultAmountEur);
+    final hoursText = hours == hours.roundToDouble()
+        ? hours.toStringAsFixed(0)
+        : hours.toStringAsFixed(1).replaceAll('.', ',');
+    return '$people x $hoursText Stunden x ${formatEuro(rate)}';
   }
 
   bool _isPlannedCostPosition(PlanningDraft draft, String costKey) {
@@ -303,7 +391,7 @@ extension on _PlanningScreenState {
       return overrideLabel;
     }
     if (key.startsWith(_staffCostKeyPrefix)) {
-      final blockId = key.substring(_staffCostKeyPrefix.length);
+      final blockId = _staffBlockIdFromCostKey(key);
       for (final block in buildingBlockCatalogStore.value) {
         if (block.id == blockId) {
           return block.name;

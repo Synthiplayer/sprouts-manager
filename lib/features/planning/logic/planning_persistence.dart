@@ -96,6 +96,9 @@ extension on _PlanningScreenState {
       ),
       'costPositionAmountOverrides': _costPositionAmountOverrides,
       'costPositionLabelOverrides': _costPositionLabelOverrides,
+      'staffPeopleCountOverrides': _staffPeopleCountOverrides,
+      'staffHoursOverrides': _staffHoursOverrides,
+      'staffHourlyRateOverrides': _staffHourlyRateOverrides,
       'scenarioOccupancyOverrides': _scenarioOccupancyOverrides,
       'scenarioVariableCostOverrides': _scenarioVariableCostOverrides,
       'scenarioVariableCostThresholdOverrides':
@@ -145,6 +148,15 @@ extension on _PlanningScreenState {
     _costPositionLabelOverrides
       ..clear()
       ..addAll(_stringMap(json['costPositionLabelOverrides']));
+    _staffPeopleCountOverrides
+      ..clear()
+      ..addAll(_intMap(json['staffPeopleCountOverrides']));
+    _staffHoursOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['staffHoursOverrides']));
+    _staffHourlyRateOverrides
+      ..clear()
+      ..addAll(_doubleMap(json['staffHourlyRateOverrides']));
     _scenarioOccupancyOverrides
       ..clear()
       ..addAll(_doubleMap(json['scenarioOccupancyOverrides']));

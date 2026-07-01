@@ -315,6 +315,7 @@ extension on _PlanningScreenState {
       _selectedScenario(draft),
     );
     final isLocationItem = item.label == 'Location / Halle';
+    final isStaffItem = item.label.startsWith(_staffCostKeyPrefix);
     final displayLabel = _costPositionDisplayLabel(draft, item);
     final labelController = TextEditingController(
       text: isLocationItem
@@ -338,6 +339,52 @@ extension on _PlanningScreenState {
         item.amountEur,
       ),
     );
+    final staffPeopleController = TextEditingController(
+      text: isStaffItem ? '${_staffPeopleCount(draft, item.label)}' : '1',
+    );
+    final staffHoursController = TextEditingController(
+      text: isStaffItem ? _editableMoneyValue(_staffHours(draft, item.label)) : '1',
+    );
+    final staffRateController = TextEditingController(
+      text: isStaffItem
+          ? _editableMoneyValue(
+              _staffHourlyRateEur(draft, item.label, item.amountEur),
+            )
+          : _editableMoneyValue(item.amountEur),
+    );
+
+    _CostPositionEditResult currentResult() {
+      final parsedPeopleCount =
+          int.tryParse(staffPeopleController.text.trim()) ?? 1;
+      final staffPeopleCount =
+          parsedPeopleCount < 1 ? 1 : parsedPeopleCount;
+      final parsedStaffHours = parseEuroInput(staffHoursController.text);
+      final staffHours = parsedStaffHours < 0 ? 0.0 : parsedStaffHours;
+      final parsedStaffHourlyRate = parseEuroInput(staffRateController.text);
+      final staffHourlyRateEur =
+          parsedStaffHourlyRate < 0 ? 0.0 : parsedStaffHourlyRate;
+      final amountEur = isStaffItem
+          ? staffPeopleCount * staffHours * staffHourlyRateEur
+          : parseEuroInput(amountController.text);
+
+      return _CostPositionEditResult(
+        label: labelController.text.trim(),
+        amountEur: amountEur,
+        selectedAreaNames: selectedAreaNames,
+        staffPeopleCount: isStaffItem ? staffPeopleCount : null,
+        staffHours: isStaffItem ? staffHours : null,
+        staffHourlyRateEur: isStaffItem ? staffHourlyRateEur : null,
+      );
+    }
+
+    void refreshStaffTotal(StateSetter setDialogState) {
+      if (!isStaffItem) {
+        return;
+      }
+      setDialogState(() {
+        amountController.text = _editableMoneyValue(currentResult().amountEur);
+      });
+    }
 
     final result = await showDialog<_CostPositionEditResult>(
       context: context,
@@ -364,6 +411,7 @@ extension on _PlanningScreenState {
                 const SizedBox(height: 12),
                 TextField(
                   controller: amountController,
+                  readOnly: isStaffItem,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
@@ -372,15 +420,52 @@ extension on _PlanningScreenState {
                     border: OutlineInputBorder(),
                   ),
                   onSubmitted: (value) {
-                    Navigator.of(dialogContext).pop(
-                      _CostPositionEditResult(
-                        label: labelController.text.trim(),
-                        amountEur: parseEuroInput(value),
-                        selectedAreaNames: selectedAreaNames,
-                      ),
-                    );
+                    Navigator.of(dialogContext).pop(currentResult());
                   },
                 ),
+                if (isStaffItem) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: staffPeopleController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Personen',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => refreshStaffTotal(setDialogState),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: staffHoursController,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Stunden',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => refreshStaffTotal(setDialogState),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: staffRateController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Satz brutto pro Stunde',
+                      suffixText: 'EUR',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => refreshStaffTotal(setDialogState),
+                  ),
+                ],
                 if (locationAreas.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Align(
@@ -434,13 +519,7 @@ extension on _PlanningScreenState {
             ),
             FilledButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(
-                  _CostPositionEditResult(
-                    label: labelController.text.trim(),
-                    amountEur: parseEuroInput(amountController.text),
-                    selectedAreaNames: selectedAreaNames,
-                  ),
-                );
+                Navigator.of(dialogContext).pop(currentResult());
               },
               child: const Text('Speichern'),
             ),
@@ -461,6 +540,17 @@ extension on _PlanningScreenState {
       _costPositionAmountOverrides[
         _costPositionOverrideKey(draft, item.label)
       ] = result.amountEur;
+      if (isStaffItem) {
+        _staffPeopleCountOverrides[
+          _costPositionOverrideKey(draft, item.label)
+        ] = result.staffPeopleCount ?? 1;
+        _staffHoursOverrides[
+          _costPositionOverrideKey(draft, item.label)
+        ] = result.staffHours ?? 1;
+        _staffHourlyRateOverrides[
+          _costPositionOverrideKey(draft, item.label)
+        ] = result.staffHourlyRateEur ?? result.amountEur;
+      }
       if (item.label == 'Location / Halle') {
         if (locationAreas.isEmpty) {
           _locationNameOverrides[draft.id] = label;
@@ -582,11 +672,12 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningTechnologyCostItem item,
   ) async {
-    final result = await _showNameAmountDialog(
+    final result = await _showNameAmountQuantityDialog(
       context: context,
       title: 'Technik bearbeiten',
       initialLabel: item.label.isEmpty ? item.type.label : item.label,
-      initialAmountEur: item.grossUnitAmountEur,
+      initialQuantity: item.quantity,
+      initialUnitAmountEur: item.grossUnitAmountEur,
     );
 
     if (result == null) {
@@ -599,7 +690,8 @@ extension on _PlanningScreenState {
           if (current.id == item.id)
             current.copyWith(
               label: result.label.isEmpty ? current.label : result.label,
-              grossUnitAmountEur: result.amountEur,
+              quantity: result.quantity,
+              grossUnitAmountEur: result.unitAmountEur,
             )
           else
             current,
@@ -711,6 +803,129 @@ extension on _PlanningScreenState {
     return result;
   }
 
+  Future<_NameAmountQuantityEditResult?> _showNameAmountQuantityDialog({
+    required BuildContext context,
+    required String title,
+    required String initialLabel,
+    required int initialQuantity,
+    required double initialUnitAmountEur,
+  }) async {
+    final labelController = TextEditingController(text: initialLabel);
+    final quantityController = TextEditingController(
+      text: '${initialQuantity < 1 ? 1 : initialQuantity}',
+    );
+    final unitAmountController = TextEditingController(
+      text: _editableMoneyValue(initialUnitAmountEur),
+    );
+    final totalController = TextEditingController(
+      text: _editableMoneyValue(
+        (initialQuantity < 1 ? 1 : initialQuantity) * initialUnitAmountEur,
+      ),
+    );
+
+    int quantityValue() {
+      final parsed = int.tryParse(quantityController.text.trim()) ?? 1;
+      return parsed < 1 ? 1 : parsed;
+    }
+
+    double unitAmountValue() {
+      final parsed = parseEuroInput(unitAmountController.text);
+      return parsed < 0 ? 0.0 : parsed;
+    }
+
+    _NameAmountQuantityEditResult currentResult() {
+      return _NameAmountQuantityEditResult(
+        label: labelController.text.trim(),
+        quantity: quantityValue(),
+        unitAmountEur: unitAmountValue(),
+      );
+    }
+
+    void refreshTotal(StateSetter setDialogState) {
+      setDialogState(() {
+        totalController.text = _editableMoneyValue(
+          quantityValue() * unitAmountValue(),
+        );
+      });
+    }
+
+    final result = await showDialog<_NameAmountQuantityEditResult>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: labelController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: quantityController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Anzahl',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => refreshTotal(setDialogState),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: unitAmountController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Einzelpreis brutto',
+                        suffixText: 'EUR',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => refreshTotal(setDialogState),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: totalController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Gesamt brutto',
+                  suffixText: 'EUR',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(currentResult());
+              },
+              child: const Text('Speichern'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return result;
+  }
+
   void _addTechnologyCatalogItem(
     PlanningDraft draft, {
     required String label,
@@ -765,6 +980,9 @@ extension on _PlanningScreenState {
     _refreshPlanningUi(() {
       _costPositionLabelOverrides.remove(_costPositionOverrideKey(draft, label));
       _costPositionAmountOverrides.remove(_costPositionOverrideKey(draft, label));
+      _staffPeopleCountOverrides.remove(_costPositionOverrideKey(draft, label));
+      _staffHoursOverrides.remove(_costPositionOverrideKey(draft, label));
+      _staffHourlyRateOverrides.remove(_costPositionOverrideKey(draft, label));
     });
     _savePlanningSandboxState();
   }

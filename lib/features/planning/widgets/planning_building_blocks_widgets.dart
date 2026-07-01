@@ -10,11 +10,29 @@ class _CostPositionEditResult {
   final String label;
   final double amountEur;
   final Set<String> selectedAreaNames;
+  final int? staffPeopleCount;
+  final double? staffHours;
+  final double? staffHourlyRateEur;
 
   const _CostPositionEditResult({
     required this.label,
     required this.amountEur,
     this.selectedAreaNames = const {},
+    this.staffPeopleCount,
+    this.staffHours,
+    this.staffHourlyRateEur,
+  });
+}
+
+class _NameAmountQuantityEditResult {
+  final String label;
+  final int quantity;
+  final double unitAmountEur;
+
+  const _NameAmountQuantityEditResult({
+    required this.label,
+    required this.quantity,
+    required this.unitAmountEur,
   });
 }
 
@@ -34,6 +52,15 @@ const String _staffCostKeyPrefix = 'staff::';
 
 String _staffCostKeyForBuildingBlock(BuildingBlock block) {
   return '$_staffCostKeyPrefix${block.id}';
+}
+
+String _newStaffCostKeyForBuildingBlock(BuildingBlock block) {
+  return '${_staffCostKeyForBuildingBlock(block)}::${DateTime.now().microsecondsSinceEpoch}';
+}
+
+String _staffBlockIdFromCostKey(String costKey) {
+  final withoutPrefix = costKey.substring(_staffCostKeyPrefix.length);
+  return withoutPrefix.split('::').first;
 }
 
 String _costKeyForBuildingBlock(BuildingBlock block) {

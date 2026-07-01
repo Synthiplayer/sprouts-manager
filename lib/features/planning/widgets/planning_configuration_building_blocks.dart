@@ -169,12 +169,17 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     BuildingBlock block,
   ) {
-    final costKey = _staffCostKeyForBuildingBlock(block);
+    final costKey = _newStaffCostKeyForBuildingBlock(block);
 
     _refreshPlanningUi(() {
       _costPositionLabelOverrides[
         _costPositionOverrideKey(draft, costKey)
       ] = block.name;
+      _staffPeopleCountOverrides[_costPositionOverrideKey(draft, costKey)] = 1;
+      _staffHoursOverrides[_costPositionOverrideKey(draft, costKey)] = 1;
+      _staffHourlyRateOverrides[
+        _costPositionOverrideKey(draft, costKey)
+      ] = block.defaultAmountEur;
       _costPositionAmountOverrides[
         _costPositionOverrideKey(draft, costKey)
       ] = block.defaultAmountEur;
@@ -531,8 +536,8 @@ extension on _PlanningScreenState {
     PlanningBoxItem item,
   ) {
     final color = _planningBoxCategoryColor(item.category);
-    final showSource = item.source.isNotEmpty &&
-        item.category != PlanningBoxItemCategory.location;
+    final sourceLabel = _planningBoxSourceLabel(item);
+    final showSource = sourceLabel.isNotEmpty;
 
     return GestureDetector(
       onTap:
@@ -564,7 +569,7 @@ extension on _PlanningScreenState {
                   if (showSource) ...[
                     const SizedBox(height: 2),
                     Text(
-                      '${item.category.label} · ${item.source}',
+                      sourceLabel,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -597,6 +602,37 @@ extension on _PlanningScreenState {
         ),
       ),
     );
+  }
+
+  String _planningBoxSourceLabel(PlanningBoxItem item) {
+    if (item.category == PlanningBoxItemCategory.location) {
+      return '';
+    }
+
+    final source = item.source.trim();
+    if (source.isEmpty || source == item.label || source == item.category.label) {
+      return '';
+    }
+
+    if (item.category == PlanningBoxItemCategory.technology &&
+        _isGenericTechnologySource(source)) {
+      return '';
+    }
+
+    if (item.category == PlanningBoxItemCategory.program &&
+        _isGenericProgramSource(source)) {
+      return '';
+    }
+
+    return source;
+  }
+
+  bool _isGenericTechnologySource(String source) {
+    return PlanningTechnologyCostType.values.any((type) => type.label == source);
+  }
+
+  bool _isGenericProgramSource(String source) {
+    return PlanningArtistCostType.values.any((type) => type.label == source);
   }
 
   Future<void> _editPlanningBoxItem(
