@@ -1,40 +1,11 @@
 part of '../planning_screen.dart';
 
-class _PlanningCatalogDragData {
-  final VoidCallback onDrop;
-
-  const _PlanningCatalogDragData({required this.onDrop});
-}
-
-class _CostPositionEditResult {
-  final String label;
-  final double amountEur;
-  final Set<String> selectedAreaNames;
-
-  const _CostPositionEditResult({
-    required this.label,
-    required this.amountEur,
-    this.selectedAreaNames = const {},
-  });
-}
-
-class _PlanningLocationArea {
-  final String name;
-  final double squareMeters;
-  final double amountEur;
-
-  const _PlanningLocationArea({
-    required this.name,
-    required this.squareMeters,
-    this.amountEur = 0,
-  });
-}
-
 extension on _PlanningScreenState {
   static const List<BuildingBlockCategory> _planningCatalogCategories = [
     BuildingBlockCategory.location,
     BuildingBlockCategory.technology,
     BuildingBlockCategory.program,
+    BuildingBlockCategory.staff,
     BuildingBlockCategory.cost,
   ];
 
@@ -241,6 +212,7 @@ extension on _PlanningScreenState {
                   initiallyExpanded: category == BuildingBlockCategory.location ||
                       category == BuildingBlockCategory.technology ||
                       category == BuildingBlockCategory.program ||
+                      category == BuildingBlockCategory.staff ||
                       category == BuildingBlockCategory.cost,
                   children: _catalogCardsForCategory(
                     context,
@@ -336,6 +308,7 @@ extension on _PlanningScreenState {
           label: block.name,
           type: _technologyTypeForBuildingBlock(block),
           amountEur: block.defaultAmountEur,
+          sourceBlockName: block.name,
         );
         break;
       case BuildingBlockCategory.program:
@@ -344,9 +317,11 @@ extension on _PlanningScreenState {
           label: block.name,
           type: _programTypeForBuildingBlock(block),
           amountEur: block.defaultAmountEur,
+          sourceBlockName: block.name,
         );
         break;
       case BuildingBlockCategory.staff:
+        _addStaffBuildingBlockToPlanning(draft, block);
         break;
       case BuildingBlockCategory.cost:
         _addCostBuildingBlockToPlanning(draft, block);
@@ -367,21 +342,28 @@ extension on _PlanningScreenState {
       _costPositionLabelOverrides[
         _costPositionOverrideKey(draft, costKey)
       ] = block.name;
-      if (amountEur > 0) {
-        _costPositionAmountOverrides[
-          _costPositionOverrideKey(draft, costKey)
-        ] = amountEur;
-      }
+      _costPositionAmountOverrides[
+        _costPositionOverrideKey(draft, costKey)
+      ] = amountEur;
     });
     _savePlanningSandboxState();
   }
 
-  String _costKeyForBuildingBlock(BuildingBlock block) {
-    if (block.costProfile == BuildingBlockCostProfile.gema ||
-        block.name.toLowerCase() == 'gema') {
-      return 'GEMA';
-    }
-    return block.name;
+  void _addStaffBuildingBlockToPlanning(
+    PlanningDraft draft,
+    BuildingBlock block,
+  ) {
+    final costKey = _staffCostKeyForBuildingBlock(block);
+
+    _refreshPlanningUi(() {
+      _costPositionLabelOverrides[
+        _costPositionOverrideKey(draft, costKey)
+      ] = block.name;
+      _costPositionAmountOverrides[
+        _costPositionOverrideKey(draft, costKey)
+      ] = block.defaultAmountEur;
+    });
+    _savePlanningSandboxState();
   }
 
   PlanningTechnologyCostType _technologyTypeForBuildingBlock(
@@ -865,7 +847,7 @@ extension on _PlanningScreenState {
     if (itemId == null) {
       return null;
     }
-    for (final item in _technologyCostItemsForDraft(draft)) {
+    for (final item in _plannedTechnologyCostItemsForDraft(draft)) {
       if (item.id == itemId) {
         return item;
       }
@@ -880,7 +862,7 @@ extension on _PlanningScreenState {
     if (itemId == null) {
       return null;
     }
-    for (final item in _artistCostItemsForDraft(draft)) {
+    for (final item in _plannedArtistCostItemsForDraft(draft)) {
       if (item.id == itemId) {
         return item;
       }
@@ -894,7 +876,7 @@ extension on _PlanningScreenState {
     }
     _refreshPlanningUi(() {
       _technologyCostItemOverrides[draft.id] = [
-        for (final current in _technologyCostItemsForDraft(draft))
+        for (final current in _plannedTechnologyCostItemsForDraft(draft))
           if (current.id != itemId) current,
       ];
     });
@@ -907,7 +889,7 @@ extension on _PlanningScreenState {
     }
     _refreshPlanningUi(() {
       _artistCostItemOverrides[draft.id] = [
-        for (final current in _artistCostItemsForDraft(draft))
+        for (final current in _plannedArtistCostItemsForDraft(draft))
           if (current.id != itemId) current,
       ];
     });
@@ -987,10 +969,11 @@ extension on _PlanningScreenState {
       _selectedScenario(draft),
     );
     final isLocationItem = item.label == 'Location / Halle';
+    final displayLabel = _costPositionDisplayLabel(draft, item);
     final labelController = TextEditingController(
       text: isLocationItem
           ? currentLocationName
-          : _costPositionDisplayLabel(draft, item),
+          : displayLabel,
     );
     final locationAreas = item.label == 'Location / Halle'
         ? _locationAreasForName(currentLocationName)
@@ -1017,7 +1000,7 @@ extension on _PlanningScreenState {
           title: Text(
             isLocationItem
                 ? '$currentLocationName bearbeiten'
-                : '${item.label} bearbeiten',
+                : '$displayLabel bearbeiten',
           ),
           content: SizedBox(
             width: 360,
@@ -1153,10 +1136,20 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningCostOverviewItem item,
   ) {
-    return _costPositionLabelOverrides[
-          _costPositionOverrideKey(draft, item.label)
-        ] ??
-        item.label;
+    final overrideLabel = _costPositionLabelOverrides[
+      _costPositionOverrideKey(draft, item.label)
+    ];
+    if (overrideLabel != null) {
+      return overrideLabel;
+    }
+    if (item.label.startsWith(_staffCostKeyPrefix)) {
+      return _planningBoxLabelForCostKey(
+        draft,
+        _selectedScenario(draft),
+        item.label,
+      );
+    }
+    return item.label;
   }
 
   void _selectLocationScenario(PlanningDraft draft, String locationName) {
@@ -1256,7 +1249,7 @@ extension on _PlanningScreenState {
 
     _refreshPlanningUi(() {
       _technologyCostItemOverrides[draft.id] = [
-        for (final current in _technologyCostItemsForDraft(draft))
+        for (final current in _plannedTechnologyCostItemsForDraft(draft))
           if (current.id == item.id)
             current.copyWith(
               label: result.label.isEmpty ? current.label : result.label,
@@ -1286,7 +1279,7 @@ extension on _PlanningScreenState {
 
     _refreshPlanningUi(() {
       _artistCostItemOverrides[draft.id] = [
-        for (final current in _artistCostItemsForDraft(draft))
+        for (final current in _plannedArtistCostItemsForDraft(draft))
           if (current.id == item.id)
             current.copyWith(
               label: result.label.isEmpty ? current.label : result.label,
@@ -1377,8 +1370,9 @@ extension on _PlanningScreenState {
     required String label,
     required PlanningTechnologyCostType type,
     required double amountEur,
+    required String sourceBlockName,
   }) {
-    final currentItems = [..._technologyCostItemsForDraft(draft)];
+    final currentItems = [..._plannedTechnologyCostItemsForDraft(draft)];
     _refreshPlanningUi(() {
       _technologyCostItemOverrides[draft.id] = [
         ...currentItems,
@@ -1388,6 +1382,7 @@ extension on _PlanningScreenState {
           type: type,
           quantity: 1,
           grossUnitAmountEur: amountEur,
+          note: sourceBlockName,
         ),
       ];
     });
@@ -1399,8 +1394,9 @@ extension on _PlanningScreenState {
     required String label,
     required PlanningArtistCostType type,
     required double amountEur,
+    required String sourceBlockName,
   }) {
-    final currentItems = [..._artistCostItemsForDraft(draft)];
+    final currentItems = [..._plannedArtistCostItemsForDraft(draft)];
     _refreshPlanningUi(() {
       _artistCostItemOverrides[draft.id] = [
         ...currentItems,
@@ -1409,6 +1405,7 @@ extension on _PlanningScreenState {
           label: label,
           type: type,
           grossAmountEur: amountEur,
+          note: sourceBlockName,
         ),
       ];
     });
@@ -1420,20 +1417,8 @@ extension on _PlanningScreenState {
     String label,
   ) {
     _refreshPlanningUi(() {
-      if (label == 'Technik') {
-        _technologyCostItemOverrides[draft.id] = [];
-      } else if (label == 'Künstler / Programm' ||
-          label == 'Film / Lizenz') {
-        _artistCostItemOverrides[draft.id] = [];
-      } else if (label == 'Security') {
-        _setOptionEnabled(draft, PlanningScenarioOption.security, false);
-      } else if (label == 'Sanitäter') {
-        _setOptionEnabled(draft, PlanningScenarioOption.medical, false);
-      } else if (label == 'Toiletten') {
-        _setOptionEnabled(draft, PlanningScenarioOption.toilets, false);
-      } else if (label == 'Absperrgitter') {
-        _setOptionEnabled(draft, PlanningScenarioOption.barriers, false);
-      }
+      _costPositionLabelOverrides.remove(_costPositionOverrideKey(draft, label));
+      _costPositionAmountOverrides.remove(_costPositionOverrideKey(draft, label));
     });
     _savePlanningSandboxState();
   }

@@ -319,6 +319,13 @@ class BuildingBlockCatalogStore extends ValueNotifier<List<BuildingBlock>> {
       note: 'Programmpunkt mit Standardgage.',
     ),
     BuildingBlock(
+      id: 'program-artist-act',
+      name: 'Künstler / Act',
+      category: BuildingBlockCategory.program,
+      defaultAmountEur: 0,
+      note: 'Freier Künstlerbaustein für Band, Act oder Show.',
+    ),
+    BuildingBlock(
       id: 'staff-barkeeper',
       name: 'Barkeeper',
       category: BuildingBlockCategory.staff,

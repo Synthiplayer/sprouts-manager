@@ -14,6 +14,7 @@ part 'widgets/planning_artists_tab.dart';
 part 'widgets/planning_technology_tab.dart';
 part 'widgets/planning_costs_tab.dart';
 part 'widgets/planning_main_tab.dart';
+part 'widgets/planning_building_blocks_widgets.dart';
 part 'widgets/planning_scenarios_tab.dart';
 part 'widgets/planning_tickets_tab.dart';
 part 'widgets/planning_sponsoring_tab.dart';

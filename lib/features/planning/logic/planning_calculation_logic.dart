@@ -26,16 +26,6 @@ extension on _PlanningScreenState {
     }
   }
 
-  void _setOptionEnabled(
-    PlanningDraft draft,
-    PlanningScenarioOption option,
-    bool value,
-  ) {
-    final options = _draftOptionOverrides.putIfAbsent(draft.id, () => {});
-    options[option] = value;
-    _savePlanningSandboxState();
-  }
-
   bool _isStaffingItemEnabled(PlanningStaffingItem item) {
     return _staffingItemOverrides[item.id] ?? item.enabledByDefault;
   }
@@ -156,22 +146,16 @@ extension on _PlanningScreenState {
     return _artistCostItemOverrides[draft.id] ?? draft.artistCostItems;
   }
 
-  double _artistCostTotalEurForDraft(PlanningDraft draft) {
-    return _artistCostItemsForDraft(draft).fold<double>(
-      0,
-      (total, item) => total + item.grossAmountEur,
-    );
-  }
-
-  double _artistCostForScenario(PlanningDraft draft, PlanningScenario scenario) {
-    if (_artistCostItemOverrides.containsKey(draft.id)) {
-      return _artistCostTotalEurForDraft(draft);
-    }
-    final plannedArtistCosts = _artistCostTotalEurForDraft(draft);
-    if (plannedArtistCosts <= 0) {
-      return scenario.artistCostEur;
-    }
-    return plannedArtistCosts;
+  List<PlanningArtistCostItem> _plannedArtistCostItemsForDraft(
+    PlanningDraft draft,
+  ) {
+    return [
+      for (final item in _artistCostItemOverrides[draft.id] ??
+          const <PlanningArtistCostItem>[])
+        if (item.id.startsWith('program-') &&
+            _isProgramItemBackedByBuildingBlock(item))
+          item,
+    ];
   }
 
   List<PlanningTechnologyCostItem> _technologyCostItemsForDraft(
@@ -180,25 +164,34 @@ extension on _PlanningScreenState {
     return _technologyCostItemOverrides[draft.id] ?? draft.technologyCostItems;
   }
 
-  double _technologyCostTotalEurForDraft(PlanningDraft draft) {
-    return _technologyCostItemsForDraft(draft).fold<double>(
-      0,
-      (total, item) => total + item.grossTotalEur,
+  List<PlanningTechnologyCostItem> _plannedTechnologyCostItemsForDraft(
+    PlanningDraft draft,
+  ) {
+    return [
+      for (final item in _technologyCostItemOverrides[draft.id] ??
+          const <PlanningTechnologyCostItem>[])
+        if (item.id.startsWith('technology-') &&
+            _isTechnologyItemBackedByBuildingBlock(item))
+          item,
+    ];
+  }
+
+  bool _isProgramItemBackedByBuildingBlock(PlanningArtistCostItem item) {
+    return buildingBlockCatalogStore.value.any(
+      (block) =>
+          block.category == BuildingBlockCategory.program &&
+          (block.name == item.label || block.name == item.note),
     );
   }
 
-  double _technologyCostForScenario(
-    PlanningDraft draft,
-    PlanningScenario scenario,
+  bool _isTechnologyItemBackedByBuildingBlock(
+    PlanningTechnologyCostItem item,
   ) {
-    if (_technologyCostItemOverrides.containsKey(draft.id)) {
-      return _technologyCostTotalEurForDraft(draft);
-    }
-    final plannedTechnologyCosts = _technologyCostTotalEurForDraft(draft);
-    if (plannedTechnologyCosts <= 0) {
-      return scenario.technologyCostEur;
-    }
-    return plannedTechnologyCosts;
+    return buildingBlockCatalogStore.value.any(
+      (block) =>
+          block.category == BuildingBlockCategory.technology &&
+          (block.name == item.label || block.name == item.note),
+    );
   }
 
   List<PlanningBoxItem> _planningBoxItemsForScenario(
@@ -208,8 +201,8 @@ extension on _PlanningScreenState {
     final programCostKey = _isCinemaPlanning(draft)
         ? 'Film / Lizenz'
         : 'Künstler / Programm';
-    final technologyItems = _technologyCostItemsForDraft(draft);
-    final programItems = _artistCostItemsForDraft(draft);
+    final technologyItems = _plannedTechnologyCostItemsForDraft(draft);
+    final programItems = _plannedArtistCostItemsForDraft(draft);
     final items = <PlanningBoxItem>[
       _costPlanningBoxItem(
         draft,
@@ -218,174 +211,122 @@ extension on _PlanningScreenState {
         amountEur: _locationCostForScenario(draft, scenario),
         source: _planningLocationName(draft, scenario),
       ),
-    ];
-
-    if (programItems.isEmpty) {
-      items.add(
-        _costPlanningBoxItem(
-          draft,
-          scenario,
+      for (final programItem in programItems)
+        PlanningBoxItem(
+          id: 'program-${programItem.id}',
+          category: PlanningBoxItemCategory.program,
+          kind: PlanningBoxItemKind.programDetail,
+          label: programItem.label.isEmpty
+              ? programItem.type.label
+              : programItem.label,
+          amountEur: programItem.grossAmountEur,
+          source:
+              programItem.note.isEmpty ? programItem.type.label : programItem.note,
           costKey: programCostKey,
-          amountEur: _artistCostForScenario(draft, scenario),
-          source: 'Szenario-Wert',
+          detailItemId: programItem.id,
+          canRemove: true,
         ),
-      );
-    } else {
-      items.addAll([
-        for (final programItem in programItems)
-          PlanningBoxItem(
-            id: 'program-${programItem.id}',
-            category: PlanningBoxItemCategory.program,
-            kind: PlanningBoxItemKind.programDetail,
-            label:
-                programItem.label.isEmpty ? programItem.type.label : programItem.label,
-            amountEur: programItem.grossAmountEur,
-            source:
-                programItem.note.isEmpty ? programItem.type.label : programItem.note,
-            costKey: programCostKey,
-            detailItemId: programItem.id,
-            canRemove: true,
-          ),
-      ]);
-    }
-
-    if (technologyItems.isEmpty) {
-      items.add(
-        _costPlanningBoxItem(
-          draft,
-          scenario,
+      for (final technologyItem in technologyItems)
+        PlanningBoxItem(
+          id: 'technology-${technologyItem.id}',
+          category: PlanningBoxItemCategory.technology,
+          kind: PlanningBoxItemKind.technologyDetail,
+          label: technologyItem.label.isEmpty
+              ? technologyItem.type.label
+              : technologyItem.label,
+          amountEur: technologyItem.grossTotalEur,
+          source: technologyItem.note.isEmpty
+              ? technologyItem.type.label
+              : technologyItem.note,
           costKey: 'Technik',
-          amountEur: _technologyCostForScenario(draft, scenario),
-          source: 'Szenario-Wert',
+          detailItemId: technologyItem.id,
+          canRemove: true,
         ),
-      );
-    } else {
-      items.addAll([
-        for (final technologyItem in technologyItems)
-          PlanningBoxItem(
-            id: 'technology-${technologyItem.id}',
-            category: PlanningBoxItemCategory.technology,
-            kind: PlanningBoxItemKind.technologyDetail,
-            label: technologyItem.label.isEmpty
-                ? technologyItem.type.label
-                : technologyItem.label,
-            amountEur: technologyItem.grossTotalEur,
-            source: technologyItem.note.isEmpty
-                ? technologyItem.type.label
-                : technologyItem.note,
-            costKey: 'Technik',
-            detailItemId: technologyItem.id,
-            canRemove: true,
-          ),
-      ]);
-    }
-
-    items.addAll([
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'Security',
-        amountEur: _visibleStaffingCostByCategory(
-          draft,
-          scenario,
-          PlanningStaffingCategory.security,
-        ),
-        source: 'aktive Security-Blöcke',
-      ),
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'Personal',
-        amountEur: _visibleStaffingCostByCategory(
-          draft,
-          scenario,
-          PlanningStaffingCategory.staff,
-        ),
-        source: 'aktive Personal-Blöcke',
-      ),
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'Sanitäter',
-        amountEur: _visibleStaffingCostByCategory(
-          draft,
-          scenario,
-          PlanningStaffingCategory.medical,
-        ),
-        source: 'aktive Sanitäter-Blöcke',
-      ),
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'GEMA',
-        amountEur: scenario.gemaCostEur,
-        source: _gemaSourceLabel(),
-      ),
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'Werbung',
-        amountEur: scenario.marketingCostEur,
-        source: 'Szenario',
-      ),
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'Versicherung',
-        amountEur: scenario.insuranceCostEur,
-        source: 'Szenario',
-      ),
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'Veranstalterarbeit',
-        amountEur: scenario.organizerWorkEur,
-        source: 'Planung',
-      ),
-    ]);
-
-    if (_isOptionEnabled(draft, PlanningScenarioOption.toilets)) {
-      items.add(
-        _costPlanningBoxItem(
-          draft,
-          scenario,
-          costKey: 'Toiletten',
-          amountEur: scenario.toiletCostEur,
-          source: 'Konfiguration',
-        ),
-      );
-    }
-
-    if (_isOptionEnabled(draft, PlanningScenarioOption.barriers)) {
-      items.add(
-        _costPlanningBoxItem(
-          draft,
-          scenario,
-          costKey: 'Absperrgitter',
-          amountEur: scenario.barriersCostEur,
-          source: 'Konfiguration',
-        ),
-      );
-    }
-
-    items.add(
-      _costPlanningBoxItem(
-        draft,
-        scenario,
-        costKey: 'Variable Wachstumskosten',
-        amountEur: _scenarioVariableCostsEur(draft, scenario),
-        source: 'Auslastung / Szenario',
-        isVariable: true,
-      ),
-    );
+      ..._staffBuildingBlockPlanningItems(draft, scenario),
+      ..._costBuildingBlockPlanningItems(draft, scenario),
+    ];
 
     return items
         .where(
-          (item) =>
-              item.amountEur > 0 ||
-              item.category == PlanningBoxItemCategory.location,
+          (item) => _isVisiblePlanningBoxItem(draft, item),
         )
         .toList();
+  }
+
+  bool _isVisiblePlanningBoxItem(PlanningDraft draft, PlanningBoxItem item) {
+    if (item.category == PlanningBoxItemCategory.location) {
+      return true;
+    }
+    if (item.kind == PlanningBoxItemKind.technologyDetail ||
+        item.kind == PlanningBoxItemKind.programDetail) {
+      return true;
+    }
+    if (item.kind == PlanningBoxItemKind.costPosition &&
+        item.canRemove &&
+        _isPlannedCostPosition(draft, item.costKey)) {
+      return true;
+    }
+    return false;
+  }
+
+  List<PlanningBoxItem> _costBuildingBlockPlanningItems(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    return [
+      for (final block in buildingBlockCatalogStore.value)
+        if (block.category == BuildingBlockCategory.cost)
+          if (_isCostBuildingBlockPlanned(draft, block))
+            _costPlanningBoxItem(
+              draft,
+              scenario,
+              costKey: _costKeyForBuildingBlock(block),
+              amountEur: block.defaultAmountEur,
+              source: _costBuildingBlockSourceLabel(block),
+              canRemove: true,
+            ),
+    ];
+  }
+
+  List<PlanningBoxItem> _staffBuildingBlockPlanningItems(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    return [
+      for (final block in buildingBlockCatalogStore.value)
+        if (block.category == BuildingBlockCategory.staff)
+          if (_isStaffBuildingBlockPlanned(draft, block))
+            _costPlanningBoxItem(
+              draft,
+              scenario,
+              costKey: _staffCostKeyForBuildingBlock(block),
+              amountEur: block.defaultAmountEur,
+              source: block.note.isEmpty ? 'Baustein' : block.note,
+              canRemove: true,
+            ),
+    ];
+  }
+
+  bool _isCostBuildingBlockPlanned(PlanningDraft draft, BuildingBlock block) {
+    return _isPlannedCostPosition(draft, _costKeyForBuildingBlock(block));
+  }
+
+  bool _isStaffBuildingBlockPlanned(PlanningDraft draft, BuildingBlock block) {
+    return _isPlannedCostPosition(draft, _staffCostKeyForBuildingBlock(block));
+  }
+
+  bool _isPlannedCostPosition(PlanningDraft draft, String costKey) {
+    final overrideKey = _costPositionOverrideKey(draft, costKey);
+    return _costPositionLabelOverrides.containsKey(overrideKey) ||
+        _costPositionAmountOverrides.containsKey(overrideKey);
+  }
+
+  String _costBuildingBlockSourceLabel(BuildingBlock block) {
+    if (block.costProfile == BuildingBlockCostProfile.gema ||
+        block.name.toLowerCase() == 'gema') {
+      return _gemaSourceLabel();
+    }
+    return block.note.isEmpty ? 'Baustein' : block.note;
   }
 
   List<PlanningCostOverviewItem> _costOverviewItemsForScenario(
@@ -415,6 +356,7 @@ extension on _PlanningScreenState {
     required double amountEur,
     required String source,
     bool isVariable = false,
+    bool? canRemove,
   }) {
     final overrideAmount =
         _costPositionAmountOverrides[_costPositionOverrideKey(draft, costKey)];
@@ -428,7 +370,7 @@ extension on _PlanningScreenState {
       source: source,
       costKey: costKey,
       isVariable: isVariable,
-      canRemove: _canRemoveCostKey(costKey),
+      canRemove: canRemove ?? false,
     );
   }
 
@@ -440,36 +382,32 @@ extension on _PlanningScreenState {
     if (key == 'Location / Halle') {
       return _planningLocationName(draft, scenario);
     }
-    return _costPositionLabelOverrides[
-          _costPositionOverrideKey(draft, key)
-        ] ??
-        key;
+    final overrideLabel = _costPositionLabelOverrides[
+      _costPositionOverrideKey(draft, key)
+    ];
+    if (overrideLabel != null) {
+      return overrideLabel;
+    }
+    if (key.startsWith(_staffCostKeyPrefix)) {
+      final blockId = key.substring(_staffCostKeyPrefix.length);
+      for (final block in buildingBlockCatalogStore.value) {
+        if (block.id == blockId) {
+          return block.name;
+        }
+      }
+      return 'Personal';
+    }
+    return key;
   }
 
   PlanningBoxItemCategory _planningBoxCategoryForCostKey(String key) {
     if (key == 'Location / Halle') {
       return PlanningBoxItemCategory.location;
     }
-    if (key == 'Technik') {
-      return PlanningBoxItemCategory.technology;
-    }
-    if (key == 'Künstler / Programm' || key == 'Film / Lizenz') {
-      return PlanningBoxItemCategory.program;
-    }
-    if (key == 'Security' || key == 'Sanitäter' || key == 'Personal') {
+    if (key.startsWith(_staffCostKeyPrefix)) {
       return PlanningBoxItemCategory.staff;
     }
     return PlanningBoxItemCategory.cost;
-  }
-
-  bool _canRemoveCostKey(String key) {
-    return key == 'Technik' ||
-        key == 'Künstler / Programm' ||
-        key == 'Film / Lizenz' ||
-        key == 'Security' ||
-        key == 'Sanitäter' ||
-        key == 'Toiletten' ||
-        key == 'Absperrgitter';
   }
 
   double _locationCostForScenario(

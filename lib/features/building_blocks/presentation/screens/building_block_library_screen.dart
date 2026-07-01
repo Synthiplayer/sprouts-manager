@@ -36,11 +36,13 @@ class _BuildingBlockLibraryScreenState
   @override
   Widget build(BuildContext context) {
     final blocks = buildingBlockCatalogStore.value;
-    final visibleBlocks = _categoryFilter == null
-        ? blocks
-        : blocks
-            .where((block) => block.category == _categoryFilter)
-            .toList();
+    final visibleBlocks = _sortedBlocks(
+      _categoryFilter == null
+          ? blocks
+          : blocks
+              .where((block) => block.category == _categoryFilter)
+              .toList(),
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Bausteine')),
@@ -103,6 +105,34 @@ class _BuildingBlockLibraryScreenState
         ],
       ),
     );
+  }
+
+  List<BuildingBlock> _sortedBlocks(List<BuildingBlock> blocks) {
+    final sortedBlocks = [...blocks];
+    sortedBlocks.sort(_compareBuildingBlocks);
+    return sortedBlocks;
+  }
+
+  int _compareBuildingBlocks(BuildingBlock a, BuildingBlock b) {
+    final categoryComparison = _categorySortIndex(
+      a.category,
+    ).compareTo(_categorySortIndex(b.category));
+    if (categoryComparison != 0) {
+      return categoryComparison;
+    }
+
+    final nameComparison = a.name.toLowerCase().compareTo(
+      b.name.toLowerCase(),
+    );
+    if (nameComparison != 0) {
+      return nameComparison;
+    }
+
+    return a.id.compareTo(b.id);
+  }
+
+  int _categorySortIndex(BuildingBlockCategory category) {
+    return BuildingBlockCategory.values.indexOf(category);
   }
 
   Future<void> _showEditDialog({
@@ -385,6 +415,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     super.initState();
     final current = widget.existing;
     _nameController = TextEditingController(text: current?.name ?? '');
+    _nameController.addListener(_refreshGemaFields);
     _amountController = TextEditingController(
       text: _editableMoneyValue(current?.defaultAmountEur ?? 0),
     );
@@ -463,32 +494,6 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 });
               },
             ),
-            if (_category == BuildingBlockCategory.cost) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<BuildingBlockCostProfile>(
-                initialValue: _costProfile,
-                decoration: const InputDecoration(
-                  labelText: 'Kostenprofil',
-                  border: OutlineInputBorder(),
-                ),
-                items: BuildingBlockCostProfile.values
-                    .map(
-                      (profile) => DropdownMenuItem(
-                        value: profile,
-                        child: Text(profile.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (profile) {
-                  if (profile == null) {
-                    return;
-                  }
-                  setState(() {
-                    _costProfile = profile;
-                  });
-                },
-              ),
-            ],
             const SizedBox(height: 12),
             TextField(
               controller: _amountController,
@@ -648,8 +653,8 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
         name: name,
         category: _category,
         costProfile:
-            _category == BuildingBlockCategory.cost
-                ? _costProfile
+            _isGemaProfile
+                ? BuildingBlockCostProfile.gema
                 : BuildingBlockCostProfile.none,
         defaultAmountEur: defaultAmountEur,
         note: _noteController.text.trim(),
@@ -778,7 +783,15 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
 
   bool get _isGemaProfile {
     return _category == BuildingBlockCategory.cost &&
-        _costProfile == BuildingBlockCostProfile.gema;
+        (_costProfile == BuildingBlockCostProfile.gema ||
+            _nameController.text.trim().toLowerCase() == 'gema');
+  }
+
+  void _refreshGemaFields() {
+    if (!mounted || _category != BuildingBlockCategory.cost) {
+      return;
+    }
+    setState(() {});
   }
 
   void _attachAreaListeners(_EditableBuildingBlockArea area) {
