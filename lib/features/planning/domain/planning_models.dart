@@ -166,6 +166,7 @@ class PlanningArtistCostItem {
   final String label;
   final PlanningArtistCostType type;
   final double grossAmountEur;
+  final String buildingBlockId;
   final String note;
 
   const PlanningArtistCostItem({
@@ -173,6 +174,7 @@ class PlanningArtistCostItem {
     required this.label,
     required this.type,
     required this.grossAmountEur,
+    this.buildingBlockId = '',
     this.note = '',
   });
 
@@ -180,6 +182,7 @@ class PlanningArtistCostItem {
     String? label,
     PlanningArtistCostType? type,
     double? grossAmountEur,
+    String? buildingBlockId,
     String? note,
   }) {
     return PlanningArtistCostItem(
@@ -187,6 +190,7 @@ class PlanningArtistCostItem {
       label: label ?? this.label,
       type: type ?? this.type,
       grossAmountEur: grossAmountEur ?? this.grossAmountEur,
+      buildingBlockId: buildingBlockId ?? this.buildingBlockId,
       note: note ?? this.note,
     );
   }
@@ -197,6 +201,7 @@ class PlanningArtistCostItem {
       'label': label,
       'type': type.name,
       'grossAmountEur': grossAmountEur,
+      'buildingBlockId': buildingBlockId,
       'note': note,
     };
   }
@@ -210,6 +215,7 @@ class PlanningArtistCostItem {
       grossAmountEur: json['grossAmountEur'] is num
           ? (json['grossAmountEur'] as num).toDouble()
           : double.tryParse('${json['grossAmountEur']}') ?? 0,
+      buildingBlockId: json['buildingBlockId']?.toString() ?? '',
       note: json['note']?.toString() ?? '',
     );
   }
@@ -264,6 +270,7 @@ class PlanningTechnologyCostItem {
   final PlanningTechnologyCostType type;
   final int quantity;
   final double grossUnitAmountEur;
+  final String buildingBlockId;
   final String note;
 
   const PlanningTechnologyCostItem({
@@ -272,6 +279,7 @@ class PlanningTechnologyCostItem {
     required this.type,
     required this.quantity,
     required this.grossUnitAmountEur,
+    this.buildingBlockId = '',
     this.note = '',
   });
 
@@ -282,6 +290,7 @@ class PlanningTechnologyCostItem {
     PlanningTechnologyCostType? type,
     int? quantity,
     double? grossUnitAmountEur,
+    String? buildingBlockId,
     String? note,
   }) {
     return PlanningTechnologyCostItem(
@@ -290,6 +299,7 @@ class PlanningTechnologyCostItem {
       type: type ?? this.type,
       quantity: quantity ?? this.quantity,
       grossUnitAmountEur: grossUnitAmountEur ?? this.grossUnitAmountEur,
+      buildingBlockId: buildingBlockId ?? this.buildingBlockId,
       note: note ?? this.note,
     );
   }
@@ -301,6 +311,7 @@ class PlanningTechnologyCostItem {
       'type': type.name,
       'quantity': quantity,
       'grossUnitAmountEur': grossUnitAmountEur,
+      'buildingBlockId': buildingBlockId,
       'note': note,
     };
   }
@@ -317,6 +328,7 @@ class PlanningTechnologyCostItem {
       grossUnitAmountEur: json['grossUnitAmountEur'] is num
           ? (json['grossUnitAmountEur'] as num).toDouble()
           : double.tryParse('${json['grossUnitAmountEur']}') ?? 0,
+      buildingBlockId: json['buildingBlockId']?.toString() ?? '',
       note: json['note']?.toString() ?? '',
     );
   }
@@ -337,13 +349,15 @@ PlanningTechnologyCostType? _technologyCostTypeByName(String? name) {
 class PlanningCostOverviewItem {
   final String label;
   final double amountEur;
-  final String source;
+  final String description;
+  final String calculationHint;
   final bool isVariable;
 
   const PlanningCostOverviewItem({
     required this.label,
     required this.amountEur,
-    required this.source,
+    this.description = '',
+    this.calculationHint = '',
     this.isVariable = false,
   });
 }
@@ -385,7 +399,9 @@ class PlanningBoxItem {
   final PlanningBoxItemKind kind;
   final String label;
   final double amountEur;
-  final String source;
+  final String description;
+  final String calculationHint;
+  final String buildingBlockId;
   final String costKey;
   final String? detailItemId;
   final bool isVariable;
@@ -398,7 +414,9 @@ class PlanningBoxItem {
     required this.kind,
     required this.label,
     required this.amountEur,
-    required this.source,
+    this.description = '',
+    this.calculationHint = '',
+    this.buildingBlockId = '',
     required this.costKey,
     this.detailItemId,
     this.isVariable = false,
@@ -410,6 +428,7 @@ class PlanningBoxItem {
 class PlanningScenario {
   final String id;
   final String name;
+  final String locationBlockId;
   final String locationName;
   final String setupName;
   final int capacity;
@@ -423,6 +442,7 @@ class PlanningScenario {
   const PlanningScenario({
     required this.id,
     required this.name,
+    this.locationBlockId = '',
     required this.locationName,
     required this.setupName,
     required this.capacity,

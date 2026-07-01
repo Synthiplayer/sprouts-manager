@@ -157,6 +157,7 @@ class BuildingBlock {
   final BuildingBlockCostProfile costProfile;
   final double defaultAmountEur;
   final String note;
+  final String address;
   final List<BuildingBlockArea> areas;
   final Set<String> selectedAreaNames;
   final BuildingBlockGemaConfig? gemaConfig;
@@ -168,6 +169,7 @@ class BuildingBlock {
     this.costProfile = BuildingBlockCostProfile.none,
     required this.defaultAmountEur,
     required this.note,
+    this.address = '',
     this.areas = const [],
     this.selectedAreaNames = const {},
     this.gemaConfig,
@@ -179,6 +181,7 @@ class BuildingBlock {
     BuildingBlockCostProfile? costProfile,
     double? defaultAmountEur,
     String? note,
+    String? address,
     List<BuildingBlockArea>? areas,
     Set<String>? selectedAreaNames,
     BuildingBlockGemaConfig? gemaConfig,
@@ -190,6 +193,7 @@ class BuildingBlock {
       costProfile: costProfile ?? this.costProfile,
       defaultAmountEur: defaultAmountEur ?? this.defaultAmountEur,
       note: note ?? this.note,
+      address: address ?? this.address,
       areas: areas ?? this.areas,
       selectedAreaNames: selectedAreaNames ?? this.selectedAreaNames,
       gemaConfig: gemaConfig ?? this.gemaConfig,
@@ -204,6 +208,7 @@ class BuildingBlock {
       'costProfile': costProfile.name,
       'defaultAmountEur': defaultAmountEur,
       'note': note,
+      'address': address,
       'areas': areas.map((area) => area.toJson()).toList(),
       'selectedAreaNames': selectedAreaNames.toList(),
       'gemaConfig': gemaConfig?.toJson(),
@@ -221,6 +226,7 @@ class BuildingBlock {
               BuildingBlockCostProfile.none,
       defaultAmountEur: _doubleFromJson(json['defaultAmountEur']),
       note: json['note']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
       areas: [
         for (final area in json['areas'] is List ? json['areas'] as List : [])
           if (area is Map)

@@ -37,7 +37,7 @@ extension on _PlanningScreenState {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isSelected
-                        ? draft.category.color
+                        ? _planningCategory(draft).color
                         : Theme.of(context).dividerColor,
                     width: isSelected ? 2 : 1,
                   ),

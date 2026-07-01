@@ -3,6 +3,9 @@ part of '../planning_screen.dart';
 class PlanningArtistsTab extends StatefulWidget {
   final PlanningDraft draft;
   final PlanningScenario scenario;
+  final EventCategory category;
+  final String draftTitle;
+  final String draftFormat;
   final List<PlanningArtistCostItem> items;
   final ValueChanged<List<PlanningArtistCostItem>> onItemsChanged;
 
@@ -10,6 +13,9 @@ class PlanningArtistsTab extends StatefulWidget {
     super.key,
     required this.draft,
     required this.scenario,
+    required this.category,
+    required this.draftTitle,
+    required this.draftFormat,
     required this.items,
     required this.onItemsChanged,
   });
@@ -115,8 +121,8 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
   }
 
   bool get _isCinemaPlanning {
-    final text = '${widget.draft.title} ${widget.draft.format}'.toLowerCase();
-    return widget.draft.category == EventCategory.movie ||
+    final text = '${widget.draftTitle} ${widget.draftFormat}'.toLowerCase();
+    return widget.category == EventCategory.movie ||
         text.contains('kino') ||
         text.contains('film');
   }

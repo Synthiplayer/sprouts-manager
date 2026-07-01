@@ -13,6 +13,7 @@ import 'package:sprouts_manager/features/events/event_category_ui.dart';
 part 'widgets/planning_artists_tab.dart';
 part 'widgets/planning_technology_tab.dart';
 part 'widgets/planning_costs_tab.dart';
+part 'widgets/planning_event_details_tab.dart';
 part 'widgets/planning_main_tab.dart';
 part 'widgets/planning_configuration_building_blocks.dart';
 part 'widgets/planning_building_blocks_widgets.dart';
@@ -26,6 +27,7 @@ part 'logic/planning_persistence.dart';
 part 'logic/planning_calculation_logic.dart';
 
 enum PlanningWorkspaceTab {
+  eventDetails,
   main,
   configuration,
   scenarios,
@@ -46,6 +48,13 @@ class PlanningScreen extends StatefulWidget {
 
 class _PlanningScreenState extends State<PlanningScreen> {
   static const String _sandboxFileName = 'planning_sandbox_state.json';
+  static const List<String> _planningStatusOptions = [
+    'Idee',
+    'Planung',
+    'Early-Bird Phase',
+    'Bestätigt',
+  ];
+  static const List<int> _minimumAgeOptions = [0, 6, 12, 14, 16, 18];
 
   final List<PlanningDraft> _drafts = planningSandboxDrafts;
   final Map<String, double> _scenarioOccupancyOverrides = {};
@@ -58,7 +67,13 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, double> _partnerSharePercentOverrides = {};
   final Map<String, String> _selectedScenarioOverrides = {};
   final Map<String, EventCategory> _draftCategoryOverrides = {};
-  final Map<String, String> _locationNameOverrides = {};
+  final Map<String, String> _draftTitleOverrides = {};
+  final Map<String, String> _draftPlanningStatusOverrides = {};
+  final Map<String, String> _draftFormatOverrides = {};
+  final Map<String, String> _draftTargetAudienceOverrides = {};
+  final Map<String, String> _draftShortDescriptionOverrides = {};
+  final Map<String, int> _draftMinimumAgeOverrides = {};
+  final Map<String, String> _locationBlockIdOverrides = {};
   final Map<String, Set<String>> _locationAreaSelectionOverrides = {};
   final Map<String, double> _costPositionAmountOverrides = {};
   final Map<String, String> _costPositionLabelOverrides = {};
@@ -96,15 +111,93 @@ class _PlanningScreenState extends State<PlanningScreen> {
     return _draftCategoryOverrides[draft.id] ?? draft.category;
   }
 
+  String _draftTitle(PlanningDraft draft) {
+    return _draftTextValue(_draftTitleOverrides, draft.id, draft.title);
+  }
+
+  String _draftPlanningStatus(PlanningDraft draft) {
+    final status = _draftTextValue(
+      _draftPlanningStatusOverrides,
+      draft.id,
+      draft.planningStatus,
+    );
+    if (_planningStatusOptions.contains(status)) {
+      return status;
+    }
+    return _planningStatusOptions.first;
+  }
+
+  String _draftFormat(PlanningDraft draft) {
+    return _draftTextValue(_draftFormatOverrides, draft.id, draft.format);
+  }
+
+  String _draftTargetAudience(PlanningDraft draft) {
+    return _draftTextValue(
+      _draftTargetAudienceOverrides,
+      draft.id,
+      draft.targetAudience,
+    );
+  }
+
+  String _draftShortDescription(PlanningDraft draft) {
+    return _draftTextValue(
+      _draftShortDescriptionOverrides,
+      draft.id,
+      draft.shortDescription,
+    );
+  }
+
+  int _draftMinimumAge(PlanningDraft draft) {
+    final age = _draftMinimumAgeOverrides[draft.id];
+    if (age != null && _minimumAgeOptions.contains(age)) {
+      return age;
+    }
+    return 18;
+  }
+
+  String _draftTextValue(
+    Map<String, String> overrides,
+    String draftId,
+    String fallback,
+  ) {
+    final value = overrides[draftId]?.trim();
+    return value == null || value.isEmpty ? fallback : value;
+  }
+
   String _planningLocationName(
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    final locationOverride = _locationNameOverrides[draft.id];
-    if (locationOverride == null || locationOverride == 'Location / Halle') {
-      return scenario.locationName;
+    return _planningLocationBlock(draft, scenario)?.name ??
+        scenario.locationName;
+  }
+
+  BuildingBlock? _planningLocationBlock(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final blockId = _planningLocationBlockId(draft, scenario);
+    if (blockId.isEmpty) {
+      return null;
     }
-    return locationOverride;
+    for (final block in buildingBlockCatalogStore.value) {
+      if (block.category == BuildingBlockCategory.location &&
+          block.id == blockId) {
+        return block;
+      }
+    }
+    return null;
+  }
+
+  String _planningLocationBlockId(
+    PlanningDraft draft,
+    PlanningScenario scenario,
+  ) {
+    final overrideId = _locationBlockIdOverrides[draft.id];
+    if (overrideId != null && overrideId.isNotEmpty) {
+      return overrideId;
+    }
+    return scenario.locationBlockId;
   }
 
   @override
@@ -202,7 +295,10 @@ class _PlanningScreenState extends State<PlanningScreen> {
       itemBuilder: (context, index) {
         final draft = _drafts[index];
         final isSelected = draft.id == selectedDraft.id;
-        final recommendedScenario = _recommendedScenario(draft);
+        final cardScenario =
+            isSelected ? _selectedScenario(draft) : _recommendedScenario(draft);
+        final scenarioLabel =
+            isSelected ? 'Aktuelles Szenario' : 'Guenstigstes Szenario';
 
         return AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -247,31 +343,31 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       runSpacing: 8,
                       children: [
                         _planningCategory(draft).toChip(),
-                        _pill(context, draft.planningStatus),
+                        _pill(context, _draftPlanningStatus(draft)),
                         _pill(context, _mainDecisionStatus(draft)),
-                        if (isSelected) _pill(context, 'Ausgewaehlt'),
+                        if (isSelected) _pill(context, 'Aktive Planung'),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      draft.title,
+                      _draftTitle(draft),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      draft.shortDescription,
+                      _draftShortDescription(draft),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Bester Preis: ${recommendedScenario.name}',
+                      '$scenarioLabel: ${cardScenario.name}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     Text(
-                      'Kapazitaet: ${recommendedScenario.capacity} | Zielauslastung: ${(_scenarioOccupancy(recommendedScenario) * 100).round()} %',
+                      'Kapazitaet: ${cardScenario.capacity} | Zielauslastung: ${(_scenarioOccupancy(cardScenario) * 100).round()} %',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 10),
@@ -279,7 +375,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Noetiger Early-Bird-Preis: ${formatEuro(_requiredEarlyBirdPriceAtTargetOccupancy(draft, recommendedScenario))}',
+                            'Noetiger Early-Bird-Preis: ${formatEuro(_requiredEarlyBirdPriceAtTargetOccupancy(draft, cardScenario))}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
@@ -287,7 +383,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Normalpreis danach: ${_normalPriceEurForScenario(draft, recommendedScenario).round()} EVC / ${formatEuro(_normalPriceEurForScenario(draft, recommendedScenario))}',
+                      'Normalpreis danach: ${_normalPriceEurForScenario(draft, cardScenario).round()} EVC / ${formatEuro(_normalPriceEurForScenario(draft, cardScenario))}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -309,7 +405,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            draft.title,
+            _draftTitle(draft),
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
@@ -318,13 +414,17 @@ class _PlanningScreenState extends State<PlanningScreen> {
             runSpacing: 8,
             children: [
               _planningCategory(draft).toChip(),
-              _pill(context, draft.planningStatus),
+              _pill(context, _draftPlanningStatus(draft)),
               _pill(context, _mainDecisionStatus(draft)),
             ],
           ),
           const SizedBox(height: 14),
           SegmentedButton<PlanningWorkspaceTab>(
             segments: const [
+              ButtonSegment(
+                value: PlanningWorkspaceTab.eventDetails,
+                label: Text('Eventdaten'),
+              ),
               ButtonSegment(
                 value: PlanningWorkspaceTab.main,
                 label: Text('Main'),
@@ -396,6 +496,8 @@ class _PlanningScreenState extends State<PlanningScreen> {
           ),
           const SizedBox(height: 16),
           switch (_tab) {
+            PlanningWorkspaceTab.eventDetails =>
+              _buildEventDetailsTab(context, draft),
             PlanningWorkspaceTab.main => _buildMainTab(context, draft),
             PlanningWorkspaceTab.configuration =>
               _buildConfigurationTab(context, draft),
@@ -403,6 +505,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
             PlanningWorkspaceTab.costs => PlanningCostsTab(
                 draft: draft,
                 scenario: _selectedScenario(draft),
+                draftTitle: _draftTitle(draft),
                 items: _costOverviewItemsForScenario(
                   draft,
                   _selectedScenario(draft),
@@ -411,6 +514,9 @@ class _PlanningScreenState extends State<PlanningScreen> {
             PlanningWorkspaceTab.artists => PlanningArtistsTab(
                 draft: draft,
                 scenario: _selectedScenario(draft),
+                category: _planningCategory(draft),
+                draftTitle: _draftTitle(draft),
+                draftFormat: _draftFormat(draft),
                 items: _artistCostItemsForDraft(draft),
                 onItemsChanged: (items) {
                   setState(() {

@@ -4,12 +4,14 @@ class PlanningCostsTab extends StatelessWidget {
   final PlanningDraft draft;
   final PlanningScenario scenario;
   final List<PlanningCostOverviewItem> items;
+  final String draftTitle;
 
   const PlanningCostsTab({
     super.key,
     required this.draft,
     required this.scenario,
     required this.items,
+    required this.draftTitle,
   });
 
   @override
@@ -32,7 +34,7 @@ class PlanningCostsTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${draft.title} - ${scenario.name}',
+                '$draftTitle - ${scenario.name}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
@@ -175,7 +177,15 @@ class PlanningCostsTab extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(flex: 2, child: Text(item.source)),
+          Expanded(
+            flex: 2,
+            child: Text(
+              [
+                item.description,
+                item.calculationHint,
+              ].where((line) => line.trim().isNotEmpty).join(' · '),
+            ),
+          ),
           Expanded(
             flex: 2,
             child: Text(

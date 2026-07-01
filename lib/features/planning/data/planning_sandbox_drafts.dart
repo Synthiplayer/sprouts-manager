@@ -77,9 +77,10 @@ const List<PlanningDraft> planningSandboxDrafts = [
     scenarios: [
       PlanningScenario(
         id: 'venue-small',
-        name: 'Kleine Halle',
-        locationName: 'Halle Nord',
-        setupName: 'Stehkonzert kompakt',
+        name: 'Kompakte Planung',
+        locationBlockId: 'location-metropol',
+        locationName: 'Metropol',
+        setupName: 'Konzert kompakt',
         capacity: 500,
         targetOccupancyPercent: 0.5,
         baseRentEur: 3200,
@@ -88,11 +89,12 @@ const List<PlanningDraft> planningSandboxDrafts = [
         variableCostNote:
             'Mehrgaeste ab 50 % Auslastung fuer Personal, Material und Ablaufpuffer.',
         locationNotes:
-            'Kompaktes Szenario mit hoeherem noetigem Ticketpreis, aber realistischer Auslastung.',
+            'Kompakter Start mit hoeherem noetigem Ticketpreis, aber realistischer Auslastung.',
       ),
       PlanningScenario(
         id: 'venue-medium',
-        name: 'Mittelgrosses Konzert',
+        name: 'Standardplanung',
+        locationBlockId: 'location-metropol',
         locationName: 'Metropol',
         setupName: 'Konzertflaeche stehend',
         capacity: 850,
@@ -107,9 +109,10 @@ const List<PlanningDraft> planningSandboxDrafts = [
       ),
       PlanningScenario(
         id: 'venue-large',
-        name: 'Grosse Eventhalle',
-        locationName: 'Eissporthalle',
-        setupName: 'Konzertflaeche gross',
+        name: 'Grosse Nachfrage',
+        locationBlockId: 'location-metropol',
+        locationName: 'Metropol',
+        setupName: 'Konzertflaeche erweitert',
         capacity: 2000,
         targetOccupancyPercent: 0.5,
         baseRentEur: 9800,

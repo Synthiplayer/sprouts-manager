@@ -90,7 +90,13 @@ extension on _PlanningScreenState {
       'draftCategoryOverrides': _draftCategoryOverrides.map(
         (draftId, category) => MapEntry(draftId, category.name),
       ),
-      'locationNameOverrides': _locationNameOverrides,
+      'draftTitleOverrides': _draftTitleOverrides,
+      'draftPlanningStatusOverrides': _draftPlanningStatusOverrides,
+      'draftFormatOverrides': _draftFormatOverrides,
+      'draftTargetAudienceOverrides': _draftTargetAudienceOverrides,
+      'draftShortDescriptionOverrides': _draftShortDescriptionOverrides,
+      'draftMinimumAgeOverrides': _draftMinimumAgeOverrides,
+      'locationBlockIdOverrides': _locationBlockIdOverrides,
       'locationAreaSelectionOverrides': _locationAreaSelectionOverrides.map(
         (draftId, areas) => MapEntry(draftId, areas.toList()),
       ),
@@ -136,9 +142,27 @@ extension on _PlanningScreenState {
     _draftCategoryOverrides
       ..clear()
       ..addAll(_eventCategoryMap(json['draftCategoryOverrides']));
-    _locationNameOverrides
+    _draftTitleOverrides
       ..clear()
-      ..addAll(_stringMap(json['locationNameOverrides']));
+      ..addAll(_stringMap(json['draftTitleOverrides']));
+    _draftPlanningStatusOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftPlanningStatusOverrides']));
+    _draftFormatOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftFormatOverrides']));
+    _draftTargetAudienceOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftTargetAudienceOverrides']));
+    _draftShortDescriptionOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftShortDescriptionOverrides']));
+    _draftMinimumAgeOverrides
+      ..clear()
+      ..addAll(_intMap(json['draftMinimumAgeOverrides']));
+    _locationBlockIdOverrides
+      ..clear()
+      ..addAll(_stringMap(json['locationBlockIdOverrides']));
     _locationAreaSelectionOverrides
       ..clear()
       ..addAll(_stringSetMap(json['locationAreaSelectionOverrides']));
@@ -188,6 +212,45 @@ extension on _PlanningScreenState {
     _technologyCostItemOverrides
       ..clear()
       ..addAll(_technologyCostItemMap(json['technologyCostItemOverrides']));
+
+    _removeObsoletePlanningOverrideKeys();
+  }
+
+  void _removeObsoletePlanningOverrideKeys() {
+    _costPositionLabelOverrides.removeWhere(
+      (key, _) => !_isSupportedCostOverrideKey(key),
+    );
+    _costPositionAmountOverrides.removeWhere(
+      (key, _) => !_isSupportedCostOverrideKey(key),
+    );
+    _staffPeopleCountOverrides.removeWhere(
+      (key, _) => !_isSupportedStaffOverrideKey(key),
+    );
+    _staffHoursOverrides.removeWhere(
+      (key, _) => !_isSupportedStaffOverrideKey(key),
+    );
+    _staffHourlyRateOverrides.removeWhere(
+      (key, _) => !_isSupportedStaffOverrideKey(key),
+    );
+  }
+
+  bool _isSupportedCostOverrideKey(String overrideKey) {
+    final costKey = _costKeyFromOverrideKey(overrideKey);
+    return costKey == _locationCostKey ||
+        costKey.startsWith(_staffCostKeyPrefix) ||
+        costKey.startsWith(_costBlockKeyPrefix);
+  }
+
+  bool _isSupportedStaffOverrideKey(String overrideKey) {
+    return _costKeyFromOverrideKey(overrideKey).startsWith(_staffCostKeyPrefix);
+  }
+
+  String _costKeyFromOverrideKey(String overrideKey) {
+    final separatorIndex = overrideKey.indexOf('::');
+    if (separatorIndex < 0) {
+      return '';
+    }
+    return overrideKey.substring(separatorIndex + 2);
   }
 
   Map<String, String> _stringMap(Object? value) {

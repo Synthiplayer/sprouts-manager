@@ -32,9 +32,15 @@ extension on _PlanningScreenState {
                   spacing: 20,
                   runSpacing: 14,
                   children: [
-                    _infoPair('Projekt', draft.title),
-                    _infoPair('Format', draft.format),
-                    _infoPair('Zielgruppe', draft.targetAudience),
+                    _infoPair('Projekt', _draftTitle(draft)),
+                    _infoPair('Format', _draftFormat(draft)),
+                    _infoPair('Zielgruppe', _draftTargetAudience(draft)),
+                    _infoPair(
+                      'Mindestalter',
+                      _draftMinimumAge(draft) == 0
+                          ? '0 Jahre'
+                          : '${_draftMinimumAge(draft)}+',
+                    ),
                     _infoPair('Location', _planningLocationName(draft, scenario)),
                     _infoPair('Setup', scenario.setupName),
                     _infoPair('Besucher Ziel', '${_scenarioTargetAttendees(scenario)}'),
@@ -242,14 +248,9 @@ extension on _PlanningScreenState {
     _savePlanningSandboxState();
   }
 
-  List<_PlanningLocationArea> _locationAreasForName(String locationName) {
-    final locationBlock = _locationBuildingBlockForName(locationName);
-    if (locationBlock == null) {
-      return const [];
-    }
-
+  List<_PlanningLocationArea> _locationAreasForBlock(BuildingBlock block) {
     return [
-      for (final area in locationBlock.areas)
+      for (final area in block.areas)
         _PlanningLocationArea(
           name: area.name,
           squareMeters: area.squareMeters,
@@ -258,18 +259,7 @@ extension on _PlanningScreenState {
     ];
   }
 
-  BuildingBlock? _locationBuildingBlockForName(String locationName) {
-    for (final block in buildingBlockCatalogStore.value) {
-      if (block.category == BuildingBlockCategory.location &&
-          block.name == locationName) {
-        return block;
-      }
-    }
-    return null;
-  }
-
-  Set<String> _defaultLocationAreaNames(String locationName) {
-    final block = _locationBuildingBlockForName(locationName);
+  Set<String> _defaultLocationAreaNames(BuildingBlock? block) {
     if (block == null || block.areas.isEmpty) {
       return {};
     }
@@ -280,11 +270,10 @@ extension on _PlanningScreenState {
   }
 
   double _locationAmountForAreaNames(
-    String locationName,
+    BuildingBlock? block,
     Set<String> selectedAreaNames,
     double fallbackAmountEur,
   ) {
-    final block = _locationBuildingBlockForName(locationName);
     if (block == null || block.areas.isEmpty) {
       return fallbackAmountEur;
     }
@@ -308,26 +297,26 @@ extension on _PlanningScreenState {
   Future<void> _showCostPositionEditDialog(
     BuildContext context,
     PlanningDraft draft,
-    PlanningCostOverviewItem item,
+    PlanningBoxItem item,
   ) async {
-    final currentLocationName = _planningLocationName(
-      draft,
-      _selectedScenario(draft),
-    );
-    final isLocationItem = item.label == 'Location / Halle';
-    final isStaffItem = item.label.startsWith(_staffCostKeyPrefix);
-    final displayLabel = _costPositionDisplayLabel(draft, item);
+    final scenario = _selectedScenario(draft);
+    final currentLocationBlock = _planningLocationBlock(draft, scenario);
+    final currentLocationName = _planningLocationName(draft, scenario);
+    final isLocationItem = item.category == PlanningBoxItemCategory.location;
+    final isStaffItem = item.category == PlanningBoxItemCategory.staff &&
+        item.costKey.startsWith(_staffCostKeyPrefix);
+    final displayLabel = item.label;
     final labelController = TextEditingController(
       text: isLocationItem
           ? currentLocationName
           : displayLabel,
     );
-    final locationAreas = item.label == 'Location / Halle'
-        ? _locationAreasForName(currentLocationName)
+    final locationAreas = isLocationItem && currentLocationBlock != null
+        ? _locationAreasForBlock(currentLocationBlock)
         : const <_PlanningLocationArea>[];
     final storedAreaNames = isLocationItem
         ? _locationAreaSelectionOverrides[draft.id] ??
-            _defaultLocationAreaNames(currentLocationName)
+            _defaultLocationAreaNames(currentLocationBlock)
         : null;
     final selectedAreaNames = {
       ...(storedAreaNames == null || storedAreaNames.isEmpty
@@ -340,15 +329,16 @@ extension on _PlanningScreenState {
       ),
     );
     final staffPeopleController = TextEditingController(
-      text: isStaffItem ? '${_staffPeopleCount(draft, item.label)}' : '1',
+      text: isStaffItem ? '${_staffPeopleCount(draft, item.costKey)}' : '1',
     );
     final staffHoursController = TextEditingController(
-      text: isStaffItem ? _editableMoneyValue(_staffHours(draft, item.label)) : '1',
+      text:
+          isStaffItem ? _editableMoneyValue(_staffHours(draft, item.costKey)) : '1',
     );
     final staffRateController = TextEditingController(
       text: isStaffItem
           ? _editableMoneyValue(
-              _staffHourlyRateEur(draft, item.label, item.amountEur),
+              _staffHourlyRateEur(draft, item.costKey, item.amountEur),
             )
           : _editableMoneyValue(item.amountEur),
     );
@@ -403,6 +393,7 @@ extension on _PlanningScreenState {
                 TextField(
                   controller: labelController,
                   autofocus: true,
+                  readOnly: isLocationItem,
                   decoration: const InputDecoration(
                     labelText: 'Name',
                     border: OutlineInputBorder(),
@@ -495,7 +486,7 @@ extension on _PlanningScreenState {
                                 }
                                 amountController.text = _editableMoneyValue(
                                   _locationAmountForAreaNames(
-                                    currentLocationName,
+                                    currentLocationBlock,
                                     selectedAreaNames,
                                     parseEuroInput(amountController.text),
                                   ),
@@ -534,29 +525,26 @@ extension on _PlanningScreenState {
 
     _refreshPlanningUi(() {
       final label = result.label.isEmpty ? item.label : result.label;
-      _costPositionLabelOverrides[
-        _costPositionOverrideKey(draft, item.label)
-      ] = label;
+      if (!isLocationItem) {
+        _costPositionLabelOverrides[
+          _costPositionOverrideKey(draft, item.costKey)
+        ] = label;
+      }
       _costPositionAmountOverrides[
-        _costPositionOverrideKey(draft, item.label)
+        _costPositionOverrideKey(draft, item.costKey)
       ] = result.amountEur;
       if (isStaffItem) {
         _staffPeopleCountOverrides[
-          _costPositionOverrideKey(draft, item.label)
+          _costPositionOverrideKey(draft, item.costKey)
         ] = result.staffPeopleCount ?? 1;
         _staffHoursOverrides[
-          _costPositionOverrideKey(draft, item.label)
+          _costPositionOverrideKey(draft, item.costKey)
         ] = result.staffHours ?? 1;
         _staffHourlyRateOverrides[
-          _costPositionOverrideKey(draft, item.label)
+          _costPositionOverrideKey(draft, item.costKey)
         ] = result.staffHourlyRateEur ?? result.amountEur;
       }
-      if (item.label == 'Location / Halle') {
-        if (locationAreas.isEmpty) {
-          _locationNameOverrides[draft.id] = label;
-        } else {
-          _locationNameOverrides.remove(draft.id);
-        }
+      if (isLocationItem) {
         if (locationAreas.isNotEmpty) {
           _locationAreaSelectionOverrides[draft.id] =
               result.selectedAreaNames.isEmpty
@@ -568,102 +556,29 @@ extension on _PlanningScreenState {
     _savePlanningSandboxState();
   }
 
-  String _costPositionDisplayLabel(
-    PlanningDraft draft,
-    PlanningCostOverviewItem item,
-  ) {
-    final overrideLabel = _costPositionLabelOverrides[
-      _costPositionOverrideKey(draft, item.label)
-    ];
-    if (overrideLabel != null) {
-      return overrideLabel;
-    }
-    if (item.label.startsWith(_staffCostKeyPrefix)) {
-      return _planningBoxLabelForCostKey(
-        draft,
-        _selectedScenario(draft),
-        item.label,
-      );
-    }
-    return item.label;
-  }
-
-  void _selectLocationScenario(PlanningDraft draft, String locationName) {
-    PlanningScenario? matchingScenario;
-    for (final scenario in draft.scenarios) {
-      if (scenario.locationName == locationName) {
-        matchingScenario = scenario;
-        break;
-      }
-    }
-
-    if (matchingScenario == null) {
-      _showCreateLocationCardDialog(draft, initialLabel: locationName);
-      return;
-    }
-
-    final selectedScenario = matchingScenario;
+  void _selectLocationBlock(PlanningDraft draft, BuildingBlock block) {
     _refreshPlanningUi(() {
-      _selectedScenarioOverrides[draft.id] = selectedScenario.id;
-      _locationNameOverrides.remove(draft.id);
-      _costPositionLabelOverrides.remove(
-        _costPositionOverrideKey(draft, 'Location / Halle'),
-      );
-      final selectedAreaNames = _defaultLocationAreaNames(locationName);
+      _locationBlockIdOverrides[draft.id] = block.id;
+      _costPositionLabelOverrides.remove(_costPositionOverrideKey(
+        draft,
+        _locationCostKey,
+      ));
+      final selectedAreaNames = _defaultLocationAreaNames(block);
       if (selectedAreaNames.isEmpty) {
         _locationAreaSelectionOverrides.remove(draft.id);
         _costPositionAmountOverrides.remove(
-          _costPositionOverrideKey(draft, 'Location / Halle'),
+          _costPositionOverrideKey(draft, _locationCostKey),
         );
       } else {
         _locationAreaSelectionOverrides[draft.id] = selectedAreaNames;
         _costPositionAmountOverrides[
-          _costPositionOverrideKey(draft, 'Location / Halle')
+          _costPositionOverrideKey(draft, _locationCostKey)
         ] = _locationAmountForAreaNames(
-          locationName,
+          block,
           selectedAreaNames,
-          selectedScenario.baseRentEur,
+          block.defaultAmountEur,
         );
       }
-    });
-    _savePlanningSandboxState();
-  }
-
-  Future<void> _showCreateLocationCardDialog(
-    PlanningDraft draft, {
-    required String initialLabel,
-  }) async {
-    final result = await _showNameAmountDialog(
-      context: context,
-      title: 'Location bearbeiten',
-      initialLabel: initialLabel,
-      initialAmountEur: 0,
-    );
-
-    if (result == null) {
-      return;
-    }
-
-    _applyLocationOverride(
-      draft,
-      label: result.label.isEmpty ? initialLabel : result.label,
-      amountEur: result.amountEur,
-    );
-  }
-
-  void _applyLocationOverride(
-    PlanningDraft draft, {
-    required String label,
-    required double amountEur,
-  }) {
-    _refreshPlanningUi(() {
-      _locationNameOverrides[draft.id] = label;
-      _costPositionLabelOverrides[
-        _costPositionOverrideKey(draft, 'Location / Halle')
-      ] = label;
-      _costPositionAmountOverrides[
-        _costPositionOverrideKey(draft, 'Location / Halle')
-      ] = amountEur;
     });
     _savePlanningSandboxState();
   }
@@ -931,7 +846,7 @@ extension on _PlanningScreenState {
     required String label,
     required PlanningTechnologyCostType type,
     required double amountEur,
-    required String sourceBlockName,
+    required String buildingBlockId,
   }) {
     final currentItems = [..._plannedTechnologyCostItemsForDraft(draft)];
     _refreshPlanningUi(() {
@@ -943,7 +858,7 @@ extension on _PlanningScreenState {
           type: type,
           quantity: 1,
           grossUnitAmountEur: amountEur,
-          note: sourceBlockName,
+          buildingBlockId: buildingBlockId,
         ),
       ];
     });
@@ -955,7 +870,7 @@ extension on _PlanningScreenState {
     required String label,
     required PlanningArtistCostType type,
     required double amountEur,
-    required String sourceBlockName,
+    required String buildingBlockId,
   }) {
     final currentItems = [..._plannedArtistCostItemsForDraft(draft)];
     _refreshPlanningUi(() {
@@ -966,7 +881,7 @@ extension on _PlanningScreenState {
           label: label,
           type: type,
           grossAmountEur: amountEur,
-          note: sourceBlockName,
+          buildingBlockId: buildingBlockId,
         ),
       ];
     });
@@ -975,14 +890,15 @@ extension on _PlanningScreenState {
 
   void _removeCostPosition(
     PlanningDraft draft,
-    String label,
+    String costKey,
   ) {
     _refreshPlanningUi(() {
-      _costPositionLabelOverrides.remove(_costPositionOverrideKey(draft, label));
-      _costPositionAmountOverrides.remove(_costPositionOverrideKey(draft, label));
-      _staffPeopleCountOverrides.remove(_costPositionOverrideKey(draft, label));
-      _staffHoursOverrides.remove(_costPositionOverrideKey(draft, label));
-      _staffHourlyRateOverrides.remove(_costPositionOverrideKey(draft, label));
+      final overrideKey = _costPositionOverrideKey(draft, costKey);
+      _costPositionLabelOverrides.remove(overrideKey);
+      _costPositionAmountOverrides.remove(overrideKey);
+      _staffPeopleCountOverrides.remove(overrideKey);
+      _staffHoursOverrides.remove(overrideKey);
+      _staffHourlyRateOverrides.remove(overrideKey);
     });
     _savePlanningSandboxState();
   }

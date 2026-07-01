@@ -443,6 +443,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
+  late final TextEditingController _addressController;
   late List<_EditableBuildingBlockArea> _areas;
   late BuildingBlockCategory _category;
   late BuildingBlockCostProfile _costProfile;
@@ -459,6 +460,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
       text: _editableMoneyValue(current?.defaultAmountEur ?? 0),
     );
     _noteController = TextEditingController(text: current?.note ?? '');
+    _addressController = TextEditingController(text: current?.address ?? '');
     _areas = [
       for (final area in current?.areas ?? const <BuildingBlockArea>[])
         _EditableBuildingBlockArea.fromArea(area),
@@ -481,6 +483,7 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
     _nameController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _addressController.dispose();
     for (final area in _areas) {
       area.dispose();
     }
@@ -540,6 +543,16 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 border: OutlineInputBorder(),
               ),
             ),
+            if (_category == BuildingBlockCategory.location) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Adresse / Ort',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
             if (_isGemaProfile) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<GemaMusicType>(
@@ -755,6 +768,9 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 : BuildingBlockCostProfile.none,
         defaultAmountEur: defaultAmountEur,
         note: _noteController.text.trim(),
+        address: _category == BuildingBlockCategory.location
+            ? _addressController.text.trim()
+            : '',
         areas: areas,
         selectedAreaNames: effectiveSelectedAreaNames,
         gemaConfig: _isGemaProfile

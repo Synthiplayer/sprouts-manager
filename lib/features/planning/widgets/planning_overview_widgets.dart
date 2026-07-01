@@ -28,6 +28,7 @@ extension on _PlanningScreenState {
               Expanded(child: Text('Auslastung', style: headerStyle)),
               Expanded(child: Text('Besucher', style: headerStyle)),
               Expanded(child: Text('Early-Bird', style: headerStyle)),
+              Expanded(child: Text('Normalpreis', style: headerStyle)),
               Expanded(child: Text('Var. Kosten', style: headerStyle)),
               Expanded(child: Text('Status', style: headerStyle)),
               const SizedBox(width: 112),
@@ -50,11 +51,11 @@ extension on _PlanningScreenState {
                 padding: const EdgeInsets.all(10),            decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   color: isSelected
-                      ? draft.category.color.withValues(alpha: 0.08)
+                      ? _planningCategory(draft).color.withValues(alpha: 0.08)
                       : null,
                   border: Border.all(
                     color: isSelected
-                        ? draft.category.color
+                        ? _planningCategory(draft).color
                         : Theme.of(context).dividerColor,
                     width: isSelected ? 2 : 1,
                   ),
@@ -85,6 +86,11 @@ extension on _PlanningScreenState {
                             scenario,
                           ),
                         ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        formatEuro(_normalPriceEurForScenario(draft, scenario)),
                       ),
                     ),
                     Expanded(
@@ -171,7 +177,7 @@ extension on _PlanningScreenState {
               context,
               title: 'Projekt / Main',
               rows: [
-                ('Projekt', draft.title),
+                ('Projekt', _draftTitle(draft)),
                 ('Szenario', scenario.name),
                 ('Kapazitaet', '${scenario.capacity}'),
                 (
@@ -437,7 +443,12 @@ extension on _PlanningScreenState {
                         const SizedBox(width: 12),
                         Expanded(
                           flex: 2,
-                          child: Text(item.source),
+                          child: Text(
+                            [
+                              item.description,
+                              item.calculationHint,
+                            ].where((line) => line.trim().isNotEmpty).join(' · '),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(

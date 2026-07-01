@@ -91,39 +91,38 @@ extension on _PlanningScreenState {
   }
 
   bool _isProgramItemBackedByBuildingBlock(PlanningArtistCostItem item) {
-    return buildingBlockCatalogStore.value.any(
-      (block) =>
-          block.category == BuildingBlockCategory.program &&
-          (block.name == item.label || block.name == item.note),
-    );
+    return _buildingBlockById(
+          item.buildingBlockId,
+          category: BuildingBlockCategory.program,
+        ) !=
+        null;
   }
 
   bool _isTechnologyItemBackedByBuildingBlock(
     PlanningTechnologyCostItem item,
   ) {
-    return buildingBlockCatalogStore.value.any(
-      (block) =>
-          block.category == BuildingBlockCategory.technology &&
-          (block.name == item.label || block.name == item.note),
-    );
+    return _buildingBlockById(
+          item.buildingBlockId,
+          category: BuildingBlockCategory.technology,
+        ) !=
+        null;
   }
 
   List<PlanningBoxItem> _planningBoxItemsForScenario(
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    final programCostKey = _isCinemaPlanning(draft)
-        ? 'Film / Lizenz'
-        : 'Künstler / Programm';
     final technologyItems = _plannedTechnologyCostItemsForDraft(draft);
     final programItems = _plannedArtistCostItemsForDraft(draft);
+    final locationBlock = _planningLocationBlock(draft, scenario);
     final items = <PlanningBoxItem>[
       _costPlanningBoxItem(
         draft,
         scenario,
-        costKey: 'Location / Halle',
+        costKey: _locationCostKey,
         amountEur: _locationCostForScenario(draft, scenario),
-        source: _planningLocationName(draft, scenario),
+        description: locationBlock?.note.trim() ?? '',
+        buildingBlockId: locationBlock?.id ?? '',
       ),
       for (final programItem in programItems)
         PlanningBoxItem(
@@ -134,12 +133,9 @@ extension on _PlanningScreenState {
               ? programItem.type.label
               : programItem.label,
           amountEur: programItem.grossAmountEur,
-          source: _buildingBlockNoteForPlanningItem(
-            BuildingBlockCategory.program,
-            label: programItem.label,
-            sourceBlockName: programItem.note,
-          ),
-          costKey: programCostKey,
+          description: _buildingBlockDescription(programItem.buildingBlockId),
+          buildingBlockId: programItem.buildingBlockId,
+          costKey: _programCostKey,
           detailItemId: programItem.id,
           canRemove: true,
         ),
@@ -152,8 +148,12 @@ extension on _PlanningScreenState {
               ? technologyItem.type.label
               : technologyItem.label,
           amountEur: technologyItem.grossTotalEur,
-          source: _technologySourceLabel(technologyItem),
-          costKey: 'Technik',
+          description: _buildingBlockDescription(
+            technologyItem.buildingBlockId,
+          ),
+          calculationHint: _technologyCalculationHint(technologyItem),
+          buildingBlockId: technologyItem.buildingBlockId,
+          costKey: _technologyCostKey,
           detailItemId: technologyItem.id,
           canRemove: true,
         ),
@@ -184,35 +184,34 @@ extension on _PlanningScreenState {
     return false;
   }
 
-  String _technologySourceLabel(PlanningTechnologyCostItem item) {
-    final parts = <String>[
-      _buildingBlockNoteForPlanningItem(
-        BuildingBlockCategory.technology,
-        label: item.label,
-        sourceBlockName: item.note,
-      ),
-      if (item.quantity > 1)
-        '${item.quantity} x ${formatEuro(item.grossUnitAmountEur)}',
-    ].where((part) => part.trim().isNotEmpty).toList();
-
-    return parts.join(' · ');
+  String _technologyCalculationHint(PlanningTechnologyCostItem item) {
+    if (item.quantity <= 1) {
+      return '';
+    }
+    return '${item.quantity} x ${formatEuro(item.grossUnitAmountEur)}';
   }
 
-  String _buildingBlockNoteForPlanningItem(
-    BuildingBlockCategory category, {
-    required String label,
-    required String sourceBlockName,
+  BuildingBlock? _buildingBlockById(
+    String blockId, {
+    BuildingBlockCategory? category,
   }) {
-    for (final block in buildingBlockCatalogStore.value) {
-      if (block.category != category) {
-        continue;
-      }
-      if (block.name != sourceBlockName && block.name != label) {
-        continue;
-      }
-      return block.note.trim();
+    if (blockId.isEmpty) {
+      return null;
     }
-    return '';
+    for (final block in buildingBlockCatalogStore.value) {
+      if (block.id != blockId) {
+        continue;
+      }
+      if (category != null && block.category != category) {
+        continue;
+      }
+      return block;
+    }
+    return null;
+  }
+
+  String _buildingBlockDescription(String blockId) {
+    return _buildingBlockById(blockId)?.note.trim() ?? '';
   }
 
   List<PlanningBoxItem> _costBuildingBlockPlanningItems(
@@ -228,7 +227,9 @@ extension on _PlanningScreenState {
               scenario,
               costKey: _costKeyForBuildingBlock(block),
               amountEur: block.defaultAmountEur,
-              source: _costBuildingBlockSourceLabel(block),
+              description: _costBuildingBlockDescription(block),
+              calculationHint: _costBuildingBlockCalculationHint(block),
+              buildingBlockId: block.id,
               canRemove: true,
             ),
     ];
@@ -263,7 +264,9 @@ extension on _PlanningScreenState {
       scenario,
       costKey: costKey,
       amountEur: _staffCostTotalEur(draft, costKey, block),
-      source: _staffCostSourceLabel(draft, costKey, block),
+      description: block.note.trim(),
+      calculationHint: _staffCostCalculationHint(draft, costKey, block),
+      buildingBlockId: block.id,
       canRemove: true,
     );
   }
@@ -330,7 +333,7 @@ extension on _PlanningScreenState {
         _staffHourlyRateEur(draft, costKey, block.defaultAmountEur);
   }
 
-  String _staffCostSourceLabel(
+  String _staffCostCalculationHint(
     PlanningDraft draft,
     String costKey,
     BuildingBlock block,
@@ -350,12 +353,16 @@ extension on _PlanningScreenState {
         _costPositionAmountOverrides.containsKey(overrideKey);
   }
 
-  String _costBuildingBlockSourceLabel(BuildingBlock block) {
+  String _costBuildingBlockDescription(BuildingBlock block) {
+    return block.note.trim();
+  }
+
+  String _costBuildingBlockCalculationHint(BuildingBlock block) {
     if (block.costProfile == BuildingBlockCostProfile.gema ||
         block.name.toLowerCase() == 'gema') {
-      return _gemaSourceLabel();
+      return _gemaCalculationHint(block);
     }
-    return block.note.trim();
+    return '';
   }
 
   List<PlanningCostOverviewItem> _costOverviewItemsForScenario(
@@ -373,7 +380,8 @@ extension on _PlanningScreenState {
     return PlanningCostOverviewItem(
       label: item.label,
       amountEur: item.amountEur,
-      source: item.source,
+      description: item.description,
+      calculationHint: item.calculationHint,
       isVariable: item.isVariable,
     );
   }
@@ -383,7 +391,9 @@ extension on _PlanningScreenState {
     PlanningScenario scenario, {
     required String costKey,
     required double amountEur,
-    required String source,
+    String description = '',
+    String calculationHint = '',
+    String buildingBlockId = '',
     bool isVariable = false,
     bool? canRemove,
   }) {
@@ -396,7 +406,9 @@ extension on _PlanningScreenState {
       kind: PlanningBoxItemKind.costPosition,
       label: _planningBoxLabelForCostKey(draft, scenario, costKey),
       amountEur: overrideAmount ?? amountEur,
-      source: source,
+      description: description,
+      calculationHint: calculationHint,
+      buildingBlockId: buildingBlockId,
       costKey: costKey,
       isVariable: isVariable,
       canRemove: canRemove ?? false,
@@ -408,7 +420,7 @@ extension on _PlanningScreenState {
     PlanningScenario scenario,
     String key,
   ) {
-    if (key == 'Location / Halle') {
+    if (key == _locationCostKey) {
       return _planningLocationName(draft, scenario);
     }
     final overrideLabel = _costPositionLabelOverrides[
@@ -426,11 +438,18 @@ extension on _PlanningScreenState {
       }
       return 'Personal';
     }
+    if (_isCostBlockKey(key)) {
+      final block = _buildingBlockById(
+        _costBlockIdFromCostKey(key),
+        category: BuildingBlockCategory.cost,
+      );
+      return block?.name ?? 'Kosten';
+    }
     return key;
   }
 
   PlanningBoxItemCategory _planningBoxCategoryForCostKey(String key) {
-    if (key == 'Location / Halle') {
+    if (key == _locationCostKey) {
       return PlanningBoxItemCategory.location;
     }
     if (key.startsWith(_staffCostKeyPrefix)) {
@@ -443,15 +462,7 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    final locationName = _planningLocationName(draft, scenario);
-    BuildingBlock? locationBlock;
-    for (final block in buildingBlockCatalogStore.value) {
-      if (block.category == BuildingBlockCategory.location &&
-          block.name == locationName) {
-        locationBlock = block;
-        break;
-      }
-    }
+    final locationBlock = _planningLocationBlock(draft, scenario);
 
     if (locationBlock == null || locationBlock.areas.isEmpty) {
       return scenario.baseRentEur;
@@ -475,22 +486,16 @@ extension on _PlanningScreenState {
     );
   }
 
-  String _gemaSourceLabel() {
-    for (final block in buildingBlockCatalogStore.value) {
-      if (block.costProfile == BuildingBlockCostProfile.gema ||
-          block.name.toLowerCase() == 'gema') {
-        final config = block.gemaConfig;
-        if (config == null) {
-          return 'GEMA-Baustein';
-        }
-        return 'GEMA-Baustein · ${config.musicType.label} · ${config.audienceType.label}';
-      }
+  String _gemaCalculationHint(BuildingBlock block) {
+    final config = block.gemaConfig;
+    if (config == null) {
+      return 'GEMA-Baustein';
     }
-    return 'GEMA-Baustein / Planung';
+    return 'GEMA-Baustein · ${config.musicType.label} · ${config.audienceType.label}';
   }
 
-  String _costPositionOverrideKey(PlanningDraft draft, String label) {
-    return '${draft.id}::$label';
+  String _costPositionOverrideKey(PlanningDraft draft, String costKey) {
+    return '${draft.id}::$costKey';
   }
 
   double _scenarioBaseCostsEur(PlanningDraft draft, PlanningScenario scenario) {
@@ -773,7 +778,7 @@ extension on _PlanningScreenState {
   }
 
   bool _isCinemaPlanning(PlanningDraft draft) {
-    final text = '${draft.title} ${draft.format}'.toLowerCase();
+    final text = '${_draftTitle(draft)} ${_draftFormat(draft)}'.toLowerCase();
     return _planningCategory(draft) == EventCategory.movie ||
         text.contains('kino') ||
         text.contains('film');

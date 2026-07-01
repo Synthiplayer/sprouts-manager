@@ -49,6 +49,10 @@ class _PlanningLocationArea {
 }
 
 const String _staffCostKeyPrefix = 'staff::';
+const String _costBlockKeyPrefix = 'cost::';
+const String _locationCostKey = 'location';
+const String _programCostKey = 'program';
+const String _technologyCostKey = 'technology';
 
 String _staffCostKeyForBuildingBlock(BuildingBlock block) {
   return '$_staffCostKeyPrefix${block.id}';
@@ -64,9 +68,13 @@ String _staffBlockIdFromCostKey(String costKey) {
 }
 
 String _costKeyForBuildingBlock(BuildingBlock block) {
-  if (block.costProfile == BuildingBlockCostProfile.gema ||
-      block.name.toLowerCase() == 'gema') {
-    return 'GEMA';
-  }
-  return block.name;
+  return '$_costBlockKeyPrefix${block.id}';
+}
+
+String _costBlockIdFromCostKey(String costKey) {
+  return costKey.substring(_costBlockKeyPrefix.length);
+}
+
+bool _isCostBlockKey(String costKey) {
+  return costKey.startsWith(_costBlockKeyPrefix);
 }

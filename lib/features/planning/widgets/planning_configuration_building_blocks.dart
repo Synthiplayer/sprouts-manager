@@ -116,7 +116,7 @@ extension on _PlanningScreenState {
   ) {
     switch (block.category) {
       case BuildingBlockCategory.location:
-        _selectLocationScenario(draft, block.name);
+        _selectLocationBlock(draft, block);
         break;
       case BuildingBlockCategory.technology:
         _addTechnologyCatalogItem(
@@ -124,7 +124,7 @@ extension on _PlanningScreenState {
           label: block.name,
           type: _technologyTypeForBuildingBlock(block),
           amountEur: block.defaultAmountEur,
-          sourceBlockName: block.name,
+          buildingBlockId: block.id,
         );
         break;
       case BuildingBlockCategory.program:
@@ -133,7 +133,7 @@ extension on _PlanningScreenState {
           label: block.name,
           type: _programTypeForBuildingBlock(block),
           amountEur: block.defaultAmountEur,
-          sourceBlockName: block.name,
+          buildingBlockId: block.id,
         );
         break;
       case BuildingBlockCategory.staff:
@@ -536,8 +536,10 @@ extension on _PlanningScreenState {
     PlanningBoxItem item,
   ) {
     final color = _planningBoxCategoryColor(item.category);
-    final sourceLabel = _planningBoxSourceLabel(item);
-    final showSource = sourceLabel.isNotEmpty;
+    final detailLines = [
+      item.description.trim(),
+      item.calculationHint.trim(),
+    ].where((line) => line.isNotEmpty).toList();
 
     return GestureDetector(
       onTap:
@@ -566,12 +568,9 @@ extension on _PlanningScreenState {
                     item.label,
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  if (showSource) ...[
+                  for (final line in detailLines) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      sourceLabel,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    Text(line, style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ],
               ),
@@ -604,37 +603,6 @@ extension on _PlanningScreenState {
     );
   }
 
-  String _planningBoxSourceLabel(PlanningBoxItem item) {
-    if (item.category == PlanningBoxItemCategory.location) {
-      return '';
-    }
-
-    final source = item.source.trim();
-    if (source.isEmpty || source == item.label || source == item.category.label) {
-      return '';
-    }
-
-    if (item.category == PlanningBoxItemCategory.technology &&
-        _isGenericTechnologySource(source)) {
-      return '';
-    }
-
-    if (item.category == PlanningBoxItemCategory.program &&
-        _isGenericProgramSource(source)) {
-      return '';
-    }
-
-    return source;
-  }
-
-  bool _isGenericTechnologySource(String source) {
-    return PlanningTechnologyCostType.values.any((type) => type.label == source);
-  }
-
-  bool _isGenericProgramSource(String source) {
-    return PlanningArtistCostType.values.any((type) => type.label == source);
-  }
-
   Future<void> _editPlanningBoxItem(
     BuildContext context,
     PlanningDraft draft,
@@ -645,7 +613,7 @@ extension on _PlanningScreenState {
         await _showCostPositionEditDialog(
           context,
           draft,
-          _costOverviewItemForPlanningBoxItem(item),
+          item,
         );
         return;
       case PlanningBoxItemKind.technologyDetail:
@@ -677,17 +645,6 @@ extension on _PlanningScreenState {
         _removeProgramItem(draft, item.detailItemId);
         return;
     }
-  }
-
-  PlanningCostOverviewItem _costOverviewItemForPlanningBoxItem(
-    PlanningBoxItem item,
-  ) {
-    return PlanningCostOverviewItem(
-      label: item.costKey,
-      amountEur: item.amountEur,
-      source: item.source,
-      isVariable: item.isVariable,
-    );
   }
 
   Color _planningBoxCategoryColor(PlanningBoxItemCategory category) {
