@@ -50,7 +50,7 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Alle Werte werden als Brutto-Betraege geplant. Positionen und Preise sind im Sandbox-Modus frei editierbar.',
+                'Alle Werte werden als Brutto-Beträge geplant. Positionen aus Bausteinen können hier je Planung angepasst werden.',
               ),
               const SizedBox(height: 12),
               _valueRow(
@@ -58,7 +58,7 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
                 formatEuro(totalArtistDetails),
               ),
               const Text(
-                'Wenn keine Position erfasst ist, nutzt die Main-Kalkulation den Szenario-Wert. Sobald hier Positionen stehen, werden diese Brutto-Werte fuer die Kuenstlerkosten verwendet.',
+                'Die Main-Kalkulation nutzt nur die Programmpositionen, die in der Planungsbox liegen.',
               ),
             ],
           ),
@@ -75,7 +75,7 @@ class _PlanningArtistsTabState extends State<PlanningArtistsTab> {
                 child: FilledButton.icon(
                   onPressed: _addItem,
                   icon: const Icon(Icons.add),
-                  label: const Text('Position hinzufuegen'),
+                  label: const Text('Position hinzufügen'),
                 ),
               ),
               const SizedBox(height: 12),

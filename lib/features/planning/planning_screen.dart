@@ -14,6 +14,7 @@ part 'widgets/planning_artists_tab.dart';
 part 'widgets/planning_technology_tab.dart';
 part 'widgets/planning_costs_tab.dart';
 part 'widgets/planning_main_tab.dart';
+part 'widgets/planning_configuration_building_blocks.dart';
 part 'widgets/planning_building_blocks_widgets.dart';
 part 'widgets/planning_scenarios_tab.dart';
 part 'widgets/planning_tickets_tab.dart';
@@ -47,12 +48,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
   static const String _sandboxFileName = 'planning_sandbox_state.json';
 
   final List<PlanningDraft> _drafts = planningSandboxDrafts;
-  final Map<String, Map<PlanningScenarioOption, bool>> _draftOptionOverrides = {};
   final Map<String, double> _scenarioOccupancyOverrides = {};
-  final Map<String, bool> _staffingItemOverrides = {};
-  final Map<String, int> _staffingPeopleOverrides = {};
-  final Map<String, double> _staffingHoursOverrides = {};
-  final Map<String, double> _staffingRateOverrides = {};
   final Map<String, double> _scenarioVariableCostOverrides = {};
   final Map<String, int> _scenarioVariableCostThresholdOverrides = {};
   final Map<String, double> _normalPriceMarkupOverrides = {};

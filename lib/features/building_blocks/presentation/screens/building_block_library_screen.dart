@@ -47,7 +47,7 @@ class _BuildingBlockLibraryScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('Bausteine')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showEditDialog(initialCategory: _categoryFilter),
+        onPressed: _showCreateDialog,
         icon: const Icon(Icons.add),
         label: const Text('Baustein hinzufügen'),
       ),
@@ -133,6 +133,45 @@ class _BuildingBlockLibraryScreenState
 
   int _categorySortIndex(BuildingBlockCategory category) {
     return BuildingBlockCategory.values.indexOf(category);
+  }
+
+  Future<void> _showCreateDialog() async {
+    final category = _categoryFilter ?? await _pickCategoryForNewBlock();
+    if (category == null) {
+      return;
+    }
+
+    await _showEditDialog(initialCategory: category);
+  }
+
+  Future<BuildingBlockCategory?> _pickCategoryForNewBlock() {
+    return showDialog<BuildingBlockCategory>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Kategorie wählen'),
+        content: SizedBox(
+          width: 360,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final category in BuildingBlockCategory.values)
+                ChoiceChip(
+                  label: Text(category.label),
+                  selected: false,
+                  onSelected: (_) => Navigator.of(dialogContext).pop(category),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Abbrechen'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showEditDialog({
@@ -451,7 +490,18 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existing == null ? 'Baustein anlegen' : 'Baustein bearbeiten'),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              widget.existing == null
+                  ? 'Baustein anlegen'
+                  : 'Baustein bearbeiten',
+            ),
+          ),
+          _categoryBadge(context),
+        ],
+      ),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -465,34 +515,6 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
                 labelText: 'Name',
                 border: OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<BuildingBlockCategory>(
-              initialValue: _category,
-              decoration: const InputDecoration(
-                labelText: 'Kategorie',
-                border: OutlineInputBorder(),
-              ),
-              items: BuildingBlockCategory.values
-                  .map(
-                    (category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(category.label),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (category) {
-                if (category == null) {
-                  return;
-                }
-                setState(() {
-                  _category = category;
-                  if (_category != BuildingBlockCategory.cost) {
-                    _costProfile = BuildingBlockCostProfile.none;
-                  }
-                  _syncDerivedAmount();
-                });
-              },
             ),
             const SizedBox(height: 12),
             TextField(
@@ -612,6 +634,81 @@ class _BuildingBlockEditDialogState extends State<_BuildingBlockEditDialog> {
         ),
       ],
     );
+  }
+
+  Widget _categoryBadge(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: _changeCategory,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _category.color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: _category.color.withValues(alpha: 0.55)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _category.label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: _category.color,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.expand_more,
+              size: 16,
+              color: _category.color,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changeCategory() async {
+    final selected = await showDialog<BuildingBlockCategory>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Kategorie wählen'),
+        content: SizedBox(
+          width: 360,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final category in BuildingBlockCategory.values)
+                ChoiceChip(
+                  label: Text(category.label),
+                  selected: category == _category,
+                  onSelected: (_) => Navigator.of(dialogContext).pop(category),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Abbrechen'),
+          ),
+        ],
+      ),
+    );
+
+    if (selected == null || selected == _category) {
+      return;
+    }
+
+    setState(() {
+      _category = selected;
+      if (_category != BuildingBlockCategory.cost) {
+        _costProfile = BuildingBlockCostProfile.none;
+      }
+      _syncDerivedAmount();
+    });
   }
 
   void _save() {

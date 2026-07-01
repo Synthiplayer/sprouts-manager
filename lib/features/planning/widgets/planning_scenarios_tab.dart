@@ -74,54 +74,6 @@ extension on _PlanningScreenState {
                           '${(occupancy * 100).round()} %',
                         ),
                         _infoPair('Grundmiete', formatEuro(scenario.baseRentEur)),
-                        if (_visibleStaffingCostByCategory(
-                              draft,
-                              scenario,
-                              PlanningStaffingCategory.security,
-                            ) >
-                            0)
-                          _infoPair(
-                            'Security',
-                            formatEuro(
-                              _visibleStaffingCostByCategory(
-                                draft,
-                                scenario,
-                                PlanningStaffingCategory.security,
-                              ),
-                            ),
-                          ),
-                        if (_visibleStaffingCostByCategory(
-                              draft,
-                              scenario,
-                              PlanningStaffingCategory.staff,
-                            ) >
-                            0)
-                          _infoPair(
-                            'Personal',
-                            formatEuro(
-                              _visibleStaffingCostByCategory(
-                                draft,
-                                scenario,
-                                PlanningStaffingCategory.staff,
-                              ),
-                            ),
-                          ),
-                        if (_visibleStaffingCostByCategory(
-                              draft,
-                              scenario,
-                              PlanningStaffingCategory.medical,
-                            ) >
-                            0)
-                          _infoPair(
-                            'Sanitaeter',
-                            formatEuro(
-                              _visibleStaffingCostByCategory(
-                                draft,
-                                scenario,
-                                PlanningStaffingCategory.medical,
-                              ),
-                            ),
-                          ),
                         _infoPair('Wichtige Hinweise', scenario.locationNotes),
                       ],
                     ),

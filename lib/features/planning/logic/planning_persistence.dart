@@ -100,21 +100,11 @@ extension on _PlanningScreenState {
       'scenarioVariableCostOverrides': _scenarioVariableCostOverrides,
       'scenarioVariableCostThresholdOverrides':
           _scenarioVariableCostThresholdOverrides,
-      'staffingItemOverrides': _staffingItemOverrides,
-      'staffingPeopleOverrides': _staffingPeopleOverrides,
-      'staffingHoursOverrides': _staffingHoursOverrides,
-      'staffingRateOverrides': _staffingRateOverrides,
       'normalPriceMarkupOverrides': _normalPriceMarkupOverrides,
       'leakagePercentOverrides': _leakagePercentOverrides,
       'reservePercentOverrides': _reservePercentOverrides,
       'organizerSharePercentOverrides': _organizerSharePercentOverrides,
       'partnerSharePercentOverrides': _partnerSharePercentOverrides,
-      'draftOptionOverrides': _draftOptionOverrides.map(
-        (draftId, options) => MapEntry(
-          draftId,
-          options.map((option, value) => MapEntry(option.name, value)),
-        ),
-      ),
       'artistCostItemOverrides': _artistCostItemOverrides.map(
         (draftId, items) => MapEntry(
           draftId,
@@ -164,18 +154,6 @@ extension on _PlanningScreenState {
     _scenarioVariableCostThresholdOverrides
       ..clear()
       ..addAll(_intMap(json['scenarioVariableCostThresholdOverrides']));
-    _staffingItemOverrides
-      ..clear()
-      ..addAll(_boolMap(json['staffingItemOverrides']));
-    _staffingPeopleOverrides
-      ..clear()
-      ..addAll(_intMap(json['staffingPeopleOverrides']));
-    _staffingHoursOverrides
-      ..clear()
-      ..addAll(_doubleMap(json['staffingHoursOverrides']));
-    _staffingRateOverrides
-      ..clear()
-      ..addAll(_doubleMap(json['staffingRateOverrides']));
     _normalPriceMarkupOverrides
       ..clear()
       ..addAll(_doubleMap(json['normalPriceMarkupOverrides']));
@@ -192,9 +170,6 @@ extension on _PlanningScreenState {
       ..clear()
       ..addAll(_doubleMap(json['partnerSharePercentOverrides']));
 
-    _draftOptionOverrides
-      ..clear()
-      ..addAll(_draftOptionMap(json['draftOptionOverrides']));
     _artistCostItemOverrides
       ..clear()
       ..addAll(_artistCostItemMap(json['artistCostItemOverrides']));
@@ -248,46 +223,6 @@ extension on _PlanningScreenState {
       final parsed = entry is num ? entry.toInt() : int.tryParse('$entry');
       return MapEntry(key.toString(), parsed ?? 0);
     });
-  }
-
-  Map<String, bool> _boolMap(Object? value) {
-    if (value is! Map) {
-      return {};
-    }
-    return value.map((key, entry) => MapEntry(key.toString(), entry == true));
-  }
-
-  Map<String, Map<PlanningScenarioOption, bool>> _draftOptionMap(Object? value) {
-    if (value is! Map) {
-      return {};
-    }
-
-    final result = <String, Map<PlanningScenarioOption, bool>>{};
-    for (final draftEntry in value.entries) {
-      final options = draftEntry.value;
-      if (options is! Map) {
-        continue;
-      }
-      final restoredOptions = <PlanningScenarioOption, bool>{};
-      for (final optionEntry in options.entries) {
-        final option = _planningScenarioOptionByName(optionEntry.key.toString());
-        if (option == null) {
-          continue;
-        }
-        restoredOptions[option] = optionEntry.value == true;
-      }
-      result[draftEntry.key.toString()] = restoredOptions;
-    }
-    return result;
-  }
-
-  PlanningScenarioOption? _planningScenarioOptionByName(String name) {
-    for (final option in PlanningScenarioOption.values) {
-      if (option.name == name) {
-        return option;
-      }
-    }
-    return null;
   }
 
   Map<String, List<PlanningArtistCostItem>> _artistCostItemMap(Object? value) {

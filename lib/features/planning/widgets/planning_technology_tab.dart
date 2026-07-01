@@ -50,7 +50,7 @@ class _PlanningTechnologyTabState extends State<PlanningTechnologyTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Hier werden nur die Technikpositionen gepflegt, die wirklich zusaetzlich geliehen oder bezahlt werden muessen. Vorhandene Hausanlage oder Buehne muss nicht erneut eingetragen werden.',
+                'Hier werden nur die Technikpositionen gepflegt, die wirklich zusätzlich geliehen oder bezahlt werden müssen. Vorhandene Hausanlage oder Bühne muss nicht erneut eingetragen werden.',
               ),
               const SizedBox(height: 12),
               _valueRow(
@@ -62,7 +62,7 @@ class _PlanningTechnologyTabState extends State<PlanningTechnologyTab> {
                 '${widget.scenario.name} - ${widget.scenario.locationName}',
               ),
               const Text(
-                'Wenn keine Position erfasst ist, nutzt die Main-Kalkulation den Szenario-Wert. Sobald hier Positionen stehen, ersetzen diese Brutto-Werte die Technik-Kosten des Szenarios.',
+                'Die Main-Kalkulation nutzt nur die Technikpositionen, die in der Planungsbox liegen.',
               ),
             ],
           ),
@@ -79,13 +79,13 @@ class _PlanningTechnologyTabState extends State<PlanningTechnologyTab> {
                 child: FilledButton.icon(
                   onPressed: _addItem,
                   icon: const Icon(Icons.add),
-                  label: const Text('Position hinzufuegen'),
+                  label: const Text('Position hinzufügen'),
                 ),
               ),
               const SizedBox(height: 12),
               if (_items.isEmpty)
                 const Text(
-                  'Noch keine Technikpositionen angelegt. Fuege z. B. Ton, Licht, Buehne, Traversen, Leinwand / Beamer oder Sonstiges hinzu.',
+                  'Noch keine Technikpositionen angelegt. Füge z. B. Ton, Licht, Bühne, Traversen, Leinwand / Beamer oder Sonstiges hinzu.',
                 )
               else
                 for (final item in _items)

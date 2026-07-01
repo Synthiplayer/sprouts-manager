@@ -42,59 +42,6 @@ extension PartnerTierX on PartnerTier {
   }
 }
 
-enum PlanningScenarioOption {
-  stage,
-  sound,
-  light,
-  backstage,
-  medical,
-  security,
-  toilets,
-  barriers,
-}
-
-extension PlanningScenarioOptionX on PlanningScenarioOption {
-  String get label {
-    switch (this) {
-      case PlanningScenarioOption.stage:
-        return 'Buehne';
-      case PlanningScenarioOption.sound:
-        return 'Ton';
-      case PlanningScenarioOption.light:
-        return 'Licht';
-      case PlanningScenarioOption.backstage:
-        return 'Backstage';
-      case PlanningScenarioOption.medical:
-        return 'Sanitäter';
-      case PlanningScenarioOption.security:
-        return 'Security';
-      case PlanningScenarioOption.toilets:
-        return 'Toiletten';
-      case PlanningScenarioOption.barriers:
-        return 'Absperrgitter';
-    }
-  }
-}
-
-enum PlanningStaffingCategory {
-  security,
-  medical,
-  staff,
-}
-
-extension PlanningStaffingCategoryX on PlanningStaffingCategory {
-  String get label {
-    switch (this) {
-      case PlanningStaffingCategory.security:
-        return 'Security';
-      case PlanningStaffingCategory.medical:
-        return 'Sanitäter';
-      case PlanningStaffingCategory.staff:
-        return 'Personal';
-    }
-  }
-}
-
 class PlanningDraft {
   final String id;
   final String title;
@@ -105,14 +52,6 @@ class PlanningDraft {
   final String planningStatus;
   final int minimumCapacity;
   final String seatingMode;
-  final bool requiresStage;
-  final bool requiresSound;
-  final bool requiresLight;
-  final bool requiresBackstage;
-  final bool checkMedical;
-  final bool checkSecurity;
-  final bool checkToilets;
-  final bool checkBarriers;
   final int earlyBirdPriceEvc;
   final int normalPriceEvc;
   final int presaleVotingPriceEvc;
@@ -140,14 +79,6 @@ class PlanningDraft {
     required this.planningStatus,
     required this.minimumCapacity,
     required this.seatingMode,
-    required this.requiresStage,
-    required this.requiresSound,
-    required this.requiresLight,
-    required this.requiresBackstage,
-    required this.checkMedical,
-    required this.checkSecurity,
-    required this.checkToilets,
-    required this.checkBarriers,
     required this.earlyBirdPriceEvc,
     required this.normalPriceEvc,
     required this.presaleVotingPriceEvc,
@@ -484,21 +415,10 @@ class PlanningScenario {
   final int capacity;
   final double targetOccupancyPercent;
   final double baseRentEur;
-  final double artistCostEur;
-  final double technologyCostEur;
-  final double securityCostEur;
-  final double medicalCostEur;
-  final double toiletCostEur;
-  final double gemaCostEur;
-  final double insuranceCostEur;
-  final double marketingCostEur;
-  final double organizerWorkEur;
-  final double barriersCostEur;
   final double variableCostPerAttendeeEur;
   final int variableCostThresholdAttendees;
   final String variableCostNote;
   final String locationNotes;
-  final List<PlanningStaffingItem> staffingItems;
 
   const PlanningScenario({
     required this.id,
@@ -508,55 +428,11 @@ class PlanningScenario {
     required this.capacity,
     required this.targetOccupancyPercent,
     required this.baseRentEur,
-    required this.artistCostEur,
-    required this.technologyCostEur,
-    required this.securityCostEur,
-    required this.medicalCostEur,
-    required this.toiletCostEur,
-    required this.gemaCostEur,
-    required this.insuranceCostEur,
-    required this.marketingCostEur,
-    required this.organizerWorkEur,
-    required this.barriersCostEur,
     this.variableCostPerAttendeeEur = 0,
     this.variableCostThresholdAttendees = 0,
     this.variableCostNote = '',
     required this.locationNotes,
-    this.staffingItems = const [],
   });
-}
-
-class PlanningStaffingItem {
-  final String id;
-  final String label;
-  final PlanningStaffingCategory category;
-  final int peopleCount;
-  final double hours;
-  final double hourlyRateEur;
-  final String note;
-  final bool isOptional;
-  final bool enabledByDefault;
-
-  const PlanningStaffingItem({
-    required this.id,
-    required this.label,
-    required this.category,
-    required this.peopleCount,
-    required this.hours,
-    required this.hourlyRateEur,
-    this.note = '',
-    this.isOptional = false,
-    this.enabledByDefault = true,
-  });
-
-  double get totalCostEur => peopleCount * hours * hourlyRateEur;
-
-  String get hoursText {
-    if (hours == hours.roundToDouble()) {
-      return '${hours.toInt()}';
-    }
-    return hours.toStringAsFixed(1);
-  }
 }
 
 class PlanningPartnerProfile {
