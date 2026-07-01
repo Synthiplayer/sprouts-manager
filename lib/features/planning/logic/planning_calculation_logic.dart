@@ -777,10 +777,4 @@ extension on _PlanningScreenState {
     return 'Das ausgewaehlte Szenario braucht bei ${_scenarioTargetAttendees(scenario)} zahlenden Early Birds ${formatEuro(required)} bis Break-even. Danach liegt der Normalpreis bei ${formatEuro(normalPrice)}.';
   }
 
-  bool _isCinemaPlanning(PlanningDraft draft) {
-    final text = '${_draftTitle(draft)} ${_draftFormat(draft)}'.toLowerCase();
-    return _planningCategory(draft) == EventCategory.movie ||
-        text.contains('kino') ||
-        text.contains('film');
-  }
 }

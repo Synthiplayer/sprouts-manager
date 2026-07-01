@@ -50,13 +50,16 @@ class _PlanningScreenState extends State<PlanningScreen> {
   static const String _sandboxFileName = 'planning_sandbox_state.json';
   static const List<String> _planningStatusOptions = [
     'Idee',
-    'Planung',
     'Early-Bird Phase',
+    'Bestätigung läuft',
     'Bestätigt',
+    'Abgesagt',
   ];
   static const List<int> _minimumAgeOptions = [0, 6, 12, 14, 16, 18];
 
-  final List<PlanningDraft> _drafts = planningSandboxDrafts;
+  final List<PlanningDraft> _drafts = List<PlanningDraft>.from(
+    planningSandboxDrafts,
+  );
   final Map<String, double> _scenarioOccupancyOverrides = {};
   final Map<String, double> _scenarioVariableCostOverrides = {};
   final Map<String, int> _scenarioVariableCostThresholdOverrides = {};
@@ -70,7 +73,6 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, String> _draftTitleOverrides = {};
   final Map<String, String> _draftPlanningStatusOverrides = {};
   final Map<String, String> _draftFormatOverrides = {};
-  final Map<String, String> _draftTargetAudienceOverrides = {};
   final Map<String, String> _draftShortDescriptionOverrides = {};
   final Map<String, String> _draftEventDateOverrides = {};
   final Map<String, String> _draftStartTimeOverrides = {};
@@ -135,14 +137,6 @@ class _PlanningScreenState extends State<PlanningScreen> {
     return _draftTextValue(_draftFormatOverrides, draft.id, draft.format);
   }
 
-  String _draftTargetAudience(PlanningDraft draft) {
-    return _draftTextValue(
-      _draftTargetAudienceOverrides,
-      draft.id,
-      draft.targetAudience,
-    );
-  }
-
   String _draftShortDescription(PlanningDraft draft) {
     return _draftTextValue(
       _draftShortDescriptionOverrides,
@@ -201,16 +195,21 @@ class _PlanningScreenState extends State<PlanningScreen> {
   String _draftEventScheduleText(PlanningDraft draft) {
     final date = _draftEventDate(draft);
     final time = _draftEventTimeText(draft);
+    final registrationDeadline = _draftRegistrationDeadline(draft);
+    String schedule;
     if (date.isEmpty && time == 'Noch offen') {
-      return 'Termin offen';
+      schedule = 'Termin offen';
+    } else if (date.isEmpty) {
+      schedule = time;
+    } else if (time == 'Noch offen') {
+      schedule = date;
+    } else {
+      schedule = '$date, $time';
     }
-    if (date.isEmpty) {
-      return time;
+    if (registrationDeadline.isEmpty) {
+      return schedule;
     }
-    if (time == 'Noch offen') {
-      return date;
-    }
-    return '$date, $time';
+    return '$schedule | Anmeldung bis $registrationDeadline';
   }
 
   int _draftMinimumAge(PlanningDraft draft) {
@@ -349,12 +348,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
             runSpacing: 8,
             children: [
               FilledButton.icon(
-                onPressed: () => _showPlaceholderDialog(
-                  context,
-                  title: 'Neue Planung',
-                  message:
-                      'Als naechstes oeffnet dieser Button die Template-Auswahl mit Kacheln und der Option komplett frei zu planen.',
-                ),
+                onPressed: null,
                 icon: const Icon(Icons.add),
                 label: const Text('Neue Planung'),
               ),
@@ -549,31 +543,6 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 _tab = selection.first;
               });
             },
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.tonal(
-                onPressed: () => _showPlaceholderDialog(
-                  context,
-                  title: 'Als Event veroeffentlichen',
-                  message:
-                      'Spaeter kann dieser Planungsentwurf als konkretes Event in die Eventverwaltung uebernommen werden.',
-                ),
-                child: const Text('Als Event veroeffentlichen'),
-              ),
-              OutlinedButton(
-                onPressed: () => _showPlaceholderDialog(
-                  context,
-                  title: 'Pre-Sale / Abstimmung',
-                  message:
-                      'Spaeter kann aus dem Ticket- und Break-even-Stand direkt eine Vorab-Abstimmung oder ein Pre-Sale gestartet werden.',
-                ),
-                child: const Text('Pre-Sale vorbereiten'),
-              ),
-            ],
           ),
           const SizedBox(height: 16),
           switch (_tab) {

@@ -46,7 +46,6 @@ class PlanningDraft {
   final String id;
   final String title;
   final EventCategory category;
-  final String targetAudience;
   final String format;
   final String shortDescription;
   final String planningStatus;
@@ -77,7 +76,6 @@ class PlanningDraft {
     required this.id,
     required this.title,
     required this.category,
-    required this.targetAudience,
     required this.format,
     required this.shortDescription,
     required this.planningStatus,

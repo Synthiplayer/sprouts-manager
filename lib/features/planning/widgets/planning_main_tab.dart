@@ -34,7 +34,6 @@ extension on _PlanningScreenState {
                   children: [
                     _infoPair('Projekt', _draftTitle(draft)),
                     _infoPair('Format', _draftFormat(draft)),
-                    _infoPair('Zielgruppe', _draftTargetAudience(draft)),
                     _infoPair(
                       'Mindestalter',
                       _draftMinimumAge(draft) == 0

@@ -203,17 +203,6 @@ extension _PlanningEventDetailsTab on _PlanningScreenState {
           ),
           const SizedBox(height: 14),
           TextFormField(
-            key: ValueKey('audience-${draft.id}'),
-            initialValue: _draftTargetAudience(draft),
-            decoration: const InputDecoration(labelText: 'Zielgruppe'),
-            onChanged: (value) => _updateDraftTextField(
-              draft.id,
-              _draftTargetAudienceOverrides,
-              value,
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
             key: ValueKey('description-${draft.id}'),
             initialValue: _draftShortDescription(draft),
             decoration: const InputDecoration(labelText: 'Kurzbeschreibung'),

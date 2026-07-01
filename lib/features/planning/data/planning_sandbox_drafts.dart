@@ -6,11 +6,10 @@ const List<PlanningDraft> planningSandboxDrafts = [
     id: 'vengaboys',
     title: 'Vengaboys Konzert',
     category: EventCategory.concert,
-    targetAudience: '20-40, 90er / 2000er Publikum',
     format: 'Live-Konzert mit Party-Anschluss',
     shortDescription:
         'Nostalgie-Konzert mit hohem Showfaktor und anschliessender Aftershow.',
-    planningStatus: 'Planung',
+    planningStatus: 'Early-Bird Phase',
     eventDate: '2026-07-14',
     startTime: '22:00',
     endTime: '01:00',
@@ -34,7 +33,7 @@ const List<PlanningDraft> planningSandboxDrafts = [
         label: 'Kuenstlergage Vengaboys',
         type: PlanningArtistCostType.mainActFee,
         grossAmountEur: 22000,
-        note: 'Platzhalter fuer Gage bis zum echten Angebot.',
+        note: 'Gage nach verbindlichem Angebot prüfen.',
       ),
       PlanningArtistCostItem(
         id: 'vengaboys-travel',

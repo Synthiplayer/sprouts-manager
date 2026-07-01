@@ -93,7 +93,6 @@ extension on _PlanningScreenState {
       'draftTitleOverrides': _draftTitleOverrides,
       'draftPlanningStatusOverrides': _draftPlanningStatusOverrides,
       'draftFormatOverrides': _draftFormatOverrides,
-      'draftTargetAudienceOverrides': _draftTargetAudienceOverrides,
       'draftShortDescriptionOverrides': _draftShortDescriptionOverrides,
       'draftEventDateOverrides': _draftEventDateOverrides,
       'draftStartTimeOverrides': _draftStartTimeOverrides,
@@ -156,9 +155,6 @@ extension on _PlanningScreenState {
     _draftFormatOverrides
       ..clear()
       ..addAll(_stringMap(json['draftFormatOverrides']));
-    _draftTargetAudienceOverrides
-      ..clear()
-      ..addAll(_stringMap(json['draftTargetAudienceOverrides']));
     _draftShortDescriptionOverrides
       ..clear()
       ..addAll(_stringMap(json['draftShortDescriptionOverrides']));

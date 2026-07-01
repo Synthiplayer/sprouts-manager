@@ -52,7 +52,7 @@ extension on _PlanningScreenState {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Zielgruppe: ${partner.audienceFocus} | Level: ${partner.tier.label}',
+                            'Sponsorprofil: ${partner.audienceFocus} | Level: ${partner.tier.label}',
                           ),
                           Text(
                             'Potenzial: ${formatEuro(partner.expectedAmountEur)} | Fokus: ${partner.note}',
