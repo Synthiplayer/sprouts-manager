@@ -72,6 +72,10 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, String> _draftFormatOverrides = {};
   final Map<String, String> _draftTargetAudienceOverrides = {};
   final Map<String, String> _draftShortDescriptionOverrides = {};
+  final Map<String, String> _draftEventDateOverrides = {};
+  final Map<String, String> _draftStartTimeOverrides = {};
+  final Map<String, String> _draftEndTimeOverrides = {};
+  final Map<String, String> _draftRegistrationDeadlineOverrides = {};
   final Map<String, int> _draftMinimumAgeOverrides = {};
   final Map<String, String> _locationBlockIdOverrides = {};
   final Map<String, Set<String>> _locationAreaSelectionOverrides = {};
@@ -147,6 +151,68 @@ class _PlanningScreenState extends State<PlanningScreen> {
     );
   }
 
+  String _draftEventDate(PlanningDraft draft) {
+    return _draftOptionalTextValue(
+      _draftEventDateOverrides,
+      draft.id,
+      draft.eventDate,
+    );
+  }
+
+  String _draftStartTime(PlanningDraft draft) {
+    return _draftOptionalTextValue(
+      _draftStartTimeOverrides,
+      draft.id,
+      draft.startTime,
+    );
+  }
+
+  String _draftEndTime(PlanningDraft draft) {
+    return _draftOptionalTextValue(
+      _draftEndTimeOverrides,
+      draft.id,
+      draft.endTime,
+    );
+  }
+
+  String _draftRegistrationDeadline(PlanningDraft draft) {
+    return _draftOptionalTextValue(
+      _draftRegistrationDeadlineOverrides,
+      draft.id,
+      draft.registrationDeadline,
+    );
+  }
+
+  String _draftEventTimeText(PlanningDraft draft) {
+    final startTime = _draftStartTime(draft);
+    final endTime = _draftEndTime(draft);
+    if (startTime.isEmpty && endTime.isEmpty) {
+      return 'Noch offen';
+    }
+    if (endTime.isEmpty) {
+      return 'ab $startTime';
+    }
+    if (startTime.isEmpty) {
+      return 'bis $endTime';
+    }
+    return '$startTime - $endTime';
+  }
+
+  String _draftEventScheduleText(PlanningDraft draft) {
+    final date = _draftEventDate(draft);
+    final time = _draftEventTimeText(draft);
+    if (date.isEmpty && time == 'Noch offen') {
+      return 'Termin offen';
+    }
+    if (date.isEmpty) {
+      return time;
+    }
+    if (time == 'Noch offen') {
+      return date;
+    }
+    return '$date, $time';
+  }
+
   int _draftMinimumAge(PlanningDraft draft) {
     final age = _draftMinimumAgeOverrides[draft.id];
     if (age != null && _minimumAgeOptions.contains(age)) {
@@ -162,6 +228,17 @@ class _PlanningScreenState extends State<PlanningScreen> {
   ) {
     final value = overrides[draftId]?.trim();
     return value == null || value.isEmpty ? fallback : value;
+  }
+
+  String _draftOptionalTextValue(
+    Map<String, String> overrides,
+    String draftId,
+    String fallback,
+  ) {
+    if (!overrides.containsKey(draftId)) {
+      return fallback;
+    }
+    return overrides[draftId]?.trim() ?? '';
   }
 
   String _planningLocationName(
@@ -362,6 +439,10 @@ class _PlanningScreenState extends State<PlanningScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 10),
+                    Text(
+                      _draftEventScheduleText(draft),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     Text(
                       '$scenarioLabel: ${cardScenario.name}',
                       style: Theme.of(context).textTheme.bodySmall,

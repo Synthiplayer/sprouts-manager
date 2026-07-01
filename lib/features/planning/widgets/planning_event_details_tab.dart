@@ -120,6 +120,77 @@ extension _PlanningEventDetailsTab on _PlanningScreenState {
             ],
           ),
           const SizedBox(height: 14),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: 180,
+                child: TextFormField(
+                  key: ValueKey('event-date-${draft.id}'),
+                  initialValue: _draftEventDate(draft),
+                  decoration: const InputDecoration(
+                    labelText: 'Datum',
+                    hintText: 'YYYY-MM-DD',
+                  ),
+                  onChanged: (value) => _updateDraftTextField(
+                    draft.id,
+                    _draftEventDateOverrides,
+                    value,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 150,
+                child: TextFormField(
+                  key: ValueKey('start-time-${draft.id}'),
+                  initialValue: _draftStartTime(draft),
+                  decoration: const InputDecoration(
+                    labelText: 'Startzeit',
+                    hintText: 'HH:MM',
+                  ),
+                  onChanged: (value) => _updateDraftTextField(
+                    draft.id,
+                    _draftStartTimeOverrides,
+                    value,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 150,
+                child: TextFormField(
+                  key: ValueKey('end-time-${draft.id}'),
+                  initialValue: _draftEndTime(draft),
+                  decoration: const InputDecoration(
+                    labelText: 'Endzeit',
+                    hintText: 'HH:MM',
+                  ),
+                  onChanged: (value) => _updateDraftTextField(
+                    draft.id,
+                    _draftEndTimeOverrides,
+                    value,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 220,
+                child: TextFormField(
+                  key: ValueKey('registration-deadline-${draft.id}'),
+                  initialValue: _draftRegistrationDeadline(draft),
+                  decoration: const InputDecoration(
+                    labelText: 'Anmeldeschluss',
+                    hintText: 'YYYY-MM-DD',
+                  ),
+                  onChanged: (value) => _updateDraftTextField(
+                    draft.id,
+                    _draftRegistrationDeadlineOverrides,
+                    value,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           TextFormField(
             key: ValueKey('format-${draft.id}'),
             initialValue: _draftFormat(draft),

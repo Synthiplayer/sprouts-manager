@@ -41,6 +41,19 @@ extension on _PlanningScreenState {
                           ? '0 Jahre'
                           : '${_draftMinimumAge(draft)}+',
                     ),
+                    _infoPair(
+                      'Datum',
+                      _draftEventDate(draft).isEmpty
+                          ? 'Noch offen'
+                          : _draftEventDate(draft),
+                    ),
+                    _infoPair('Uhrzeit', _draftEventTimeText(draft)),
+                    _infoPair(
+                      'Anmeldeschluss',
+                      _draftRegistrationDeadline(draft).isEmpty
+                          ? 'Noch offen'
+                          : _draftRegistrationDeadline(draft),
+                    ),
                     _infoPair('Location', _planningLocationName(draft, scenario)),
                     _infoPair('Setup', scenario.setupName),
                     _infoPair('Besucher Ziel', '${_scenarioTargetAttendees(scenario)}'),

@@ -10,7 +10,11 @@ const List<PlanningDraft> planningSandboxDrafts = [
     format: 'Live-Konzert mit Party-Anschluss',
     shortDescription:
         'Nostalgie-Konzert mit hohem Showfaktor und anschliessender Aftershow.',
-    planningStatus: 'Kuenstler-Anfrage laeuft',
+    planningStatus: 'Planung',
+    eventDate: '2026-07-14',
+    startTime: '22:00',
+    endTime: '01:00',
+    registrationDeadline: '2026-07-12',
     minimumCapacity: 700,
     seatingMode: 'Stehend',
     earlyBirdPriceEvc: 39,

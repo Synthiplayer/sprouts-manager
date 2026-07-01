@@ -50,6 +50,10 @@ class PlanningDraft {
   final String format;
   final String shortDescription;
   final String planningStatus;
+  final String eventDate;
+  final String startTime;
+  final String endTime;
+  final String registrationDeadline;
   final int minimumCapacity;
   final String seatingMode;
   final int earlyBirdPriceEvc;
@@ -77,6 +81,10 @@ class PlanningDraft {
     required this.format,
     required this.shortDescription,
     required this.planningStatus,
+    this.eventDate = '',
+    this.startTime = '',
+    this.endTime = '',
+    this.registrationDeadline = '',
     required this.minimumCapacity,
     required this.seatingMode,
     required this.earlyBirdPriceEvc,

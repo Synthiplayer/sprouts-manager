@@ -95,6 +95,11 @@ extension on _PlanningScreenState {
       'draftFormatOverrides': _draftFormatOverrides,
       'draftTargetAudienceOverrides': _draftTargetAudienceOverrides,
       'draftShortDescriptionOverrides': _draftShortDescriptionOverrides,
+      'draftEventDateOverrides': _draftEventDateOverrides,
+      'draftStartTimeOverrides': _draftStartTimeOverrides,
+      'draftEndTimeOverrides': _draftEndTimeOverrides,
+      'draftRegistrationDeadlineOverrides':
+          _draftRegistrationDeadlineOverrides,
       'draftMinimumAgeOverrides': _draftMinimumAgeOverrides,
       'locationBlockIdOverrides': _locationBlockIdOverrides,
       'locationAreaSelectionOverrides': _locationAreaSelectionOverrides.map(
@@ -157,6 +162,18 @@ extension on _PlanningScreenState {
     _draftShortDescriptionOverrides
       ..clear()
       ..addAll(_stringMap(json['draftShortDescriptionOverrides']));
+    _draftEventDateOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftEventDateOverrides']));
+    _draftStartTimeOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftStartTimeOverrides']));
+    _draftEndTimeOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftEndTimeOverrides']));
+    _draftRegistrationDeadlineOverrides
+      ..clear()
+      ..addAll(_stringMap(json['draftRegistrationDeadlineOverrides']));
     _draftMinimumAgeOverrides
       ..clear()
       ..addAll(_intMap(json['draftMinimumAgeOverrides']));
