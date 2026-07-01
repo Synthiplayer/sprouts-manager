@@ -134,8 +134,11 @@ extension on _PlanningScreenState {
               ? programItem.type.label
               : programItem.label,
           amountEur: programItem.grossAmountEur,
-          source:
-              programItem.note.isEmpty ? programItem.type.label : programItem.note,
+          source: _buildingBlockNoteForPlanningItem(
+            BuildingBlockCategory.program,
+            label: programItem.label,
+            sourceBlockName: programItem.note,
+          ),
           costKey: programCostKey,
           detailItemId: programItem.id,
           canRemove: true,
@@ -182,10 +185,34 @@ extension on _PlanningScreenState {
   }
 
   String _technologySourceLabel(PlanningTechnologyCostItem item) {
-    if (item.quantity <= 1) {
-      return '';
+    final parts = <String>[
+      _buildingBlockNoteForPlanningItem(
+        BuildingBlockCategory.technology,
+        label: item.label,
+        sourceBlockName: item.note,
+      ),
+      if (item.quantity > 1)
+        '${item.quantity} x ${formatEuro(item.grossUnitAmountEur)}',
+    ].where((part) => part.trim().isNotEmpty).toList();
+
+    return parts.join(' · ');
+  }
+
+  String _buildingBlockNoteForPlanningItem(
+    BuildingBlockCategory category, {
+    required String label,
+    required String sourceBlockName,
+  }) {
+    for (final block in buildingBlockCatalogStore.value) {
+      if (block.category != category) {
+        continue;
+      }
+      if (block.name != sourceBlockName && block.name != label) {
+        continue;
+      }
+      return block.note.trim();
     }
-    return '${item.quantity} x ${formatEuro(item.grossUnitAmountEur)}';
+    return '';
   }
 
   List<PlanningBoxItem> _costBuildingBlockPlanningItems(
@@ -328,7 +355,7 @@ extension on _PlanningScreenState {
         block.name.toLowerCase() == 'gema') {
       return _gemaSourceLabel();
     }
-    return block.note.isEmpty ? 'Baustein' : block.note;
+    return block.note.trim();
   }
 
   List<PlanningCostOverviewItem> _costOverviewItemsForScenario(
