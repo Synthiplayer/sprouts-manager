@@ -68,12 +68,6 @@ extension on _PlanningScreenState {
     ];
   }
 
-  List<PlanningTechnologyCostItem> _technologyCostItemsForDraft(
-    PlanningDraft draft,
-  ) {
-    return _technologyCostItemOverrides[draft.id] ?? draft.technologyCostItems;
-  }
-
   List<PlanningTechnologyCostItem> _plannedTechnologyCostItemsForDraft(
     PlanningDraft draft,
   ) {

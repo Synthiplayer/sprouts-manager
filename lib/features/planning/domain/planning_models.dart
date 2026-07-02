@@ -84,7 +84,6 @@ class PlanningDraft {
   final double postBreakEvenMarginPercent;
   final List<PlanningFundingItem> fundingItems;
   final List<PlanningProgramCostItem> programCostItems;
-  final List<PlanningTechnologyCostItem> technologyCostItems;
   final List<PlanningScenario> scenarios;
   final List<PlanningPartnerProfile> partners;
   final List<PlanningUpgradeStage> upgradeStages;
@@ -112,7 +111,6 @@ class PlanningDraft {
     required this.postBreakEvenMarginPercent,
     this.fundingItems = const [],
     this.programCostItems = const [],
-    this.technologyCostItems = const [],
     required this.scenarios,
     required this.partners,
     required this.upgradeStages,

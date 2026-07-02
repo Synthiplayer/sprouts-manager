@@ -3,6 +3,7 @@ import 'package:sprouts_manager/features/admission/admission_mode_screen.dart';
 import 'package:sprouts_manager/features/building_blocks/presentation/screens/building_block_library_screen.dart';
 import 'package:sprouts_manager/features/events/event_management_page.dart';
 import 'package:sprouts_manager/features/planning/planning_screen.dart';
+import 'package:sprouts_manager/features/sponsors/presentation/screens/sponsor_partner_screen.dart';
 import 'package:sprouts_manager/pages/statistics_page.dart';
 import 'package:sprouts_manager/pages/user_management_page.dart';
 
@@ -24,6 +25,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
       const EventManagementPage(),
       const AdmissionModeScreen(),
       const UserManagementPage(),
+      const SponsorPartnerScreen(),
       const StatisticsPage(),
     ];
 
@@ -33,6 +35,7 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
       'Events',
       'Einlass',
       'User',
+      'Sponsoren',
       'Statistiken',
     ];
 
@@ -66,6 +69,10 @@ class _ManagerDashboardScreenState extends State<ManagerDashboardScreen> {
               NavigationRailDestination(
                 icon: Icon(Icons.groups),
                 label: Text('User'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.handshake_outlined),
+                label: Text('Sponsoren'),
               ),
               NavigationRailDestination(
                 icon: Icon(Icons.bar_chart),

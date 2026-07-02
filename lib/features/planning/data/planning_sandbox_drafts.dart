@@ -24,29 +24,6 @@ const List<PlanningDraft> planningSandboxDrafts = [
     reservePercent: 0.08,
     organizerMarginPercent: 0.06,
     postBreakEvenMarginPercent: 0.14,
-    technologyCostItems: [
-      PlanningTechnologyCostItem(
-        id: 'vengaboys-stage',
-        label: 'Buehne / Podeste',
-        type: PlanningTechnologyCostType.stage,
-        quantity: 1,
-        grossUnitAmountEur: 1600,
-      ),
-      PlanningTechnologyCostItem(
-        id: 'vengaboys-sound',
-        label: 'Konzert-Tonanlage',
-        type: PlanningTechnologyCostType.sound,
-        quantity: 1,
-        grossUnitAmountEur: 2400,
-      ),
-      PlanningTechnologyCostItem(
-        id: 'vengaboys-light',
-        label: 'Showlicht',
-        type: PlanningTechnologyCostType.light,
-        quantity: 1,
-        grossUnitAmountEur: 1800,
-      ),
-    ],
     scenarios: [
       PlanningScenario(
         id: 'venue-small',

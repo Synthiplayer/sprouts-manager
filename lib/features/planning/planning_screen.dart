@@ -10,7 +10,6 @@ import 'package:sprouts_manager/features/planning/data/planning_sandbox_drafts.d
 import 'package:sprouts_manager/features/planning/domain/planning_models.dart';
 import 'package:sprouts_manager/features/events/event_category_ui.dart';
 
-part 'widgets/planning_technology_tab.dart';
 part 'widgets/planning_costs_tab.dart';
 part 'widgets/planning_event_details_tab.dart';
 part 'widgets/planning_main_tab.dart';
@@ -31,7 +30,6 @@ enum PlanningWorkspaceTab {
   configuration,
   scenarios,
   costs,
-  technology,
   tickets,
   sponsoring,
   breakEven,
@@ -558,10 +556,6 @@ class _PlanningScreenState extends State<PlanningScreen> {
                 label: Text('Kosten'),
               ),
               ButtonSegment(
-                value: PlanningWorkspaceTab.technology,
-                label: Text('Technik'),
-              ),
-              ButtonSegment(
                 value: PlanningWorkspaceTab.tickets,
                 label: Text('Tickets'),
               ),
@@ -597,17 +591,6 @@ class _PlanningScreenState extends State<PlanningScreen> {
                   draft,
                   _selectedScenario(draft),
                 ),
-              ),
-            PlanningWorkspaceTab.technology => PlanningTechnologyTab(
-                draft: draft,
-                scenario: _selectedScenario(draft),
-                items: _technologyCostItemsForDraft(draft),
-                onItemsChanged: (items) {
-                  setState(() {
-                    _technologyCostItemOverrides[draft.id] = items;
-                  });
-                  _savePlanningSandboxState();
-                },
               ),
             PlanningWorkspaceTab.tickets => _buildTicketsTab(context, draft),
             PlanningWorkspaceTab.sponsoring => _buildSponsoringTab(context, draft),
