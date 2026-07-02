@@ -540,12 +540,13 @@ extension on _PlanningScreenState {
     return _requiredGrossRevenueBeforeEvent(draft, scenario);
   }
 
-  double _amountToCoverAfterSupportEur(
+  double _amountToCoverForTicketPriceEur(
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
     final result =
-        _requiredGrossRevenueBeforeEvent(draft, scenario) - draft.totalSupportEur;
+        _requiredGrossRevenueBeforeEvent(draft, scenario) -
+            _totalSupportEur(draft);
     return result < 0 ? 0 : result;
   }
 
@@ -553,7 +554,7 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    return _amountToCoverAfterSupportEur(draft, scenario) /
+    return _amountToCoverForTicketPriceEur(draft, scenario) /
         _scenarioTargetAttendees(scenario);
   }
 
@@ -583,6 +584,11 @@ extension on _PlanningScreenState {
 
   double _partnerSharePercent(PlanningDraft draft) {
     return _partnerSharePercentOverrides[draft.id] ?? 0.03;
+  }
+
+  double _totalSupportEur(PlanningDraft draft) {
+    return _fundingItemsForDraft(draft)
+        .fold<double>(0, (sum, item) => sum + item.amountEur);
   }
 
   double _preEventSharePercent(PlanningDraft draft) {
@@ -677,7 +683,7 @@ extension on _PlanningScreenState {
       return 0;
     }
 
-    return (_amountToCoverAfterSupportEur(draft, scenario) / earlyBirdPrice)
+    return (_amountToCoverForTicketPriceEur(draft, scenario) / earlyBirdPrice)
         .ceil();
   }
 

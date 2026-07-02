@@ -15,29 +15,48 @@ extension PlanningPartnerTypeX on PlanningPartnerType {
       case PlanningPartnerType.eventSponsor:
         return 'Event-Sponsor';
       case PlanningPartnerType.supporter:
-        return 'Unterstuetzer';
+        return 'Unterstützer';
     }
   }
 }
 
-enum PartnerTier {
-  silver,
-  gold,
-  premium,
-  custom,
+enum PlanningFundingType {
+  eventSponsor,
+  supporter,
+  grant,
 }
 
-extension PartnerTierX on PartnerTier {
+extension PlanningFundingTypeX on PlanningFundingType {
   String get label {
     switch (this) {
-      case PartnerTier.silver:
+      case PlanningFundingType.eventSponsor:
+        return 'Event-Sponsor';
+      case PlanningFundingType.supporter:
+        return 'Unterstützer / Eventhilfe';
+      case PlanningFundingType.grant:
+        return 'Zuschuss / Förderung';
+    }
+  }
+}
+
+enum PlanningSponsorshipLevel {
+  none,
+  bronze,
+  silver,
+  gold,
+}
+
+extension PlanningSponsorshipLevelX on PlanningSponsorshipLevel {
+  String get label {
+    switch (this) {
+      case PlanningSponsorshipLevel.none:
+        return 'Keine Stufe';
+      case PlanningSponsorshipLevel.bronze:
+        return 'Bronze';
+      case PlanningSponsorshipLevel.silver:
         return 'Silber';
-      case PartnerTier.gold:
+      case PlanningSponsorshipLevel.gold:
         return 'Gold';
-      case PartnerTier.premium:
-        return 'Premium';
-      case PartnerTier.custom:
-        return 'Individuell';
     }
   }
 }
@@ -63,9 +82,7 @@ class PlanningDraft {
   final double reservePercent;
   final double organizerMarginPercent;
   final double postBreakEvenMarginPercent;
-  final double fixedSponsorAmountEur;
-  final double supporterAmountEur;
-  final double grantAmountEur;
+  final List<PlanningFundingItem> fundingItems;
   final List<PlanningProgramCostItem> programCostItems;
   final List<PlanningTechnologyCostItem> technologyCostItems;
   final List<PlanningScenario> scenarios;
@@ -93,9 +110,7 @@ class PlanningDraft {
     required this.reservePercent,
     required this.organizerMarginPercent,
     required this.postBreakEvenMarginPercent,
-    required this.fixedSponsorAmountEur,
-    required this.supporterAmountEur,
-    required this.grantAmountEur,
+    this.fundingItems = const [],
     this.programCostItems = const [],
     this.technologyCostItems = const [],
     required this.scenarios,
@@ -111,7 +126,7 @@ class PlanningDraft {
       EventCurrencyConfig.evcToEur(presaleVotingPriceEvc);
 
   double get totalSupportEur =>
-      fixedSponsorAmountEur + supporterAmountEur + grantAmountEur;
+      fundingItems.fold<double>(0, (sum, item) => sum + item.amountEur);
 
   String get partnerSummary {
     final advertising = partners
@@ -123,8 +138,93 @@ class PlanningDraft {
     final supporters = partners
         .where((partner) => partner.type == PlanningPartnerType.supporter)
         .length;
-    return '$advertising Werbepartner, $sponsors Event-Sponsoren, $supporters Unterstuetzer';
+    return '$advertising Werbepartner, $sponsors Event-Sponsoren, $supporters Unterstützer';
   }
+}
+
+class PlanningFundingItem {
+  final String id;
+  final String name;
+  final PlanningFundingType type;
+  final PlanningSponsorshipLevel level;
+  final double amountEur;
+  final String note;
+
+  const PlanningFundingItem({
+    required this.id,
+    required this.name,
+    required this.type,
+    this.level = PlanningSponsorshipLevel.none,
+    required this.amountEur,
+    this.note = '',
+  });
+
+  PlanningFundingItem copyWith({
+    String? name,
+    PlanningFundingType? type,
+    PlanningSponsorshipLevel? level,
+    double? amountEur,
+    String? note,
+  }) {
+    return PlanningFundingItem(
+      id: id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      level: level ?? this.level,
+      amountEur: amountEur ?? this.amountEur,
+      note: note ?? this.note,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'type': type.name,
+      'level': level.name,
+      'amountEur': amountEur,
+      'note': note,
+    };
+  }
+
+  factory PlanningFundingItem.fromJson(Map<String, dynamic> json) {
+    return PlanningFundingItem(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      type: _fundingTypeByName(json['type']?.toString()) ??
+          PlanningFundingType.eventSponsor,
+      level: _sponsorshipLevelByName(json['level']?.toString()) ??
+          PlanningSponsorshipLevel.none,
+      amountEur: json['amountEur'] is num
+          ? (json['amountEur'] as num).toDouble()
+          : double.tryParse('${json['amountEur']}') ?? 0,
+      note: json['note']?.toString() ?? '',
+    );
+  }
+}
+
+PlanningSponsorshipLevel? _sponsorshipLevelByName(String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final level in PlanningSponsorshipLevel.values) {
+    if (level.name == name) {
+      return level;
+    }
+  }
+  return null;
+}
+
+PlanningFundingType? _fundingTypeByName(String? name) {
+  if (name == null) {
+    return null;
+  }
+  for (final type in PlanningFundingType.values) {
+    if (type.name == name) {
+      return type;
+    }
+  }
+  return null;
 }
 
 enum PlanningProgramCostType {
@@ -446,7 +546,6 @@ class PlanningScenario {
 class PlanningPartnerProfile {
   final String name;
   final PlanningPartnerType type;
-  final PartnerTier tier;
   final String audienceFocus;
   final double expectedAmountEur;
   final String note;
@@ -454,7 +553,6 @@ class PlanningPartnerProfile {
   const PlanningPartnerProfile({
     required this.name,
     required this.type,
-    required this.tier,
     required this.audienceFocus,
     required this.expectedAmountEur,
     required this.note,

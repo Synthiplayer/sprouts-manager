@@ -138,7 +138,7 @@ extension on _PlanningScreenState {
     final totalEventCosts = _scenarioEventCostsEur(draft, scenario);
     final grossTicketsBeforeEvent = attendees * earlyBirdPrice;
     final totalIncomeBeforeEvent =
-        grossTicketsBeforeEvent + draft.totalSupportEur;
+        grossTicketsBeforeEvent + _totalSupportEur(draft);
     final organizerSharePercent = _organizerSharePercent(draft);
     final partnerSharePercent = _partnerSharePercent(draft);
     final totalSharePercent = organizerSharePercent + partnerSharePercent;
@@ -201,9 +201,7 @@ extension on _PlanningScreenState {
               title: 'Einnahmen vor Veranstaltung',
               rows: [
                 ('Tickets', formatEuro(grossTicketsBeforeEvent)),
-                ('Sponsoring', formatEuro(draft.fixedSponsorAmountEur)),
-                ('Unterstuetzer', formatEuro(draft.supporterAmountEur)),
-                ('Foerderung', formatEuro(draft.grantAmountEur)),
+                ..._fundingDisplayRows(draft),
                 ('Summe Einnahmen', formatEuro(totalIncomeBeforeEvent)),
               ],
               emphasizeLast: true,
@@ -330,6 +328,13 @@ extension on _PlanningScreenState {
     final variableTotal = items
         .where((item) => item.isVariable)
         .fold<double>(0, (sum, item) => sum + item.amountEur);
+    final requiredGrossRevenue =
+        _totalPlannedCostsEur(draft, scenario);
+    final ticketRemainder =
+        _amountToCoverForTicketPriceEur(draft, scenario);
+    final earlyBirdPrice =
+        _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario);
+    final normalPrice = _normalPriceEurForScenario(draft, scenario);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,6 +346,8 @@ extension on _PlanningScreenState {
             _infoPair('Fixe Kosten', formatEuro(fixedTotal)),
             _infoPair('Variable Kosten', formatEuro(variableTotal)),
             _infoPair('Summe Eventkosten', formatEuro(fixedTotal + variableTotal)),
+            _infoPair('Gegenfinanzierung', formatEuro(_totalSupportEur(draft))),
+            _infoPair('Restbetrag Tickets', formatEuro(ticketRemainder)),
           ],
         ),
         const SizedBox(height: 12),
@@ -466,6 +473,39 @@ extension on _PlanningScreenState {
               ),
             );
           }),
+        const SizedBox(height: 14),
+        const Divider(height: 1),
+        const SizedBox(height: 10),
+        Text(
+          'Gegenfinanzierung und Zielpreis',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 8),
+        _valueRow(
+          'Nötige Einnahmen vor Veranstaltung',
+          formatEuro(requiredGrossRevenue),
+        ),
+        for (final row in _fundingDisplayRows(draft))
+          _valueRow(row.$1, row.$2),
+        _valueRow(
+          'Gesamte Gegenfinanzierung',
+          formatEuro(_totalSupportEur(draft)),
+        ),
+        _valueRow(
+          'Restbetrag für Ticketpreis',
+          formatEuro(ticketRemainder),
+          valueStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        _valueRow(
+          'Early-Bird bei ${_scenarioTargetAttendees(scenario)} Personen',
+          formatEuro(earlyBirdPrice),
+        ),
+        _valueRow(
+          'Normalpreis danach',
+          formatEuro(normalPrice),
+        ),
       ],
     );
   }

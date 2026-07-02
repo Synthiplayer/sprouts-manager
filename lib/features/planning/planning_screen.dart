@@ -66,6 +66,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
   final Map<String, double> _reservePercentOverrides = {};
   final Map<String, double> _organizerSharePercentOverrides = {};
   final Map<String, double> _partnerSharePercentOverrides = {};
+  final Map<String, List<PlanningFundingItem>> _fundingItemOverrides = {};
   final Map<String, String> _selectedScenarioOverrides = {};
   final Map<String, EventCategory> _draftCategoryOverrides = {};
   final Map<String, String> _draftTitleOverrides = {};
@@ -110,6 +111,47 @@ class _PlanningScreenState extends State<PlanningScreen> {
     setState(() {
       update?.call();
     });
+  }
+
+  List<PlanningFundingItem> _fundingItemsForDraft(PlanningDraft draft) {
+    return _fundingItemOverrides[draft.id] ?? draft.fundingItems;
+  }
+
+  List<(String, String)> _fundingDisplayRows(PlanningDraft draft) {
+    return [
+      for (final item in _fundingItemsForDraft(draft))
+        (
+          item.name.trim().isEmpty
+              ? _fundingTypeAndLevelLabel(item)
+              : '${item.name.trim()} (${_fundingTypeAndLevelLabel(item)})',
+          formatEuro(item.amountEur),
+        ),
+    ];
+  }
+
+  String _fundingTypeAndLevelLabel(PlanningFundingItem item) {
+    if (item.level == PlanningSponsorshipLevel.none) {
+      return item.type.label;
+    }
+    return '${item.type.label} · ${item.level.label}';
+  }
+
+  void _upsertFundingItem(PlanningDraft draft, PlanningFundingItem item) {
+    final items = [..._fundingItemsForDraft(draft)];
+    final index = items.indexWhere((entry) => entry.id == item.id);
+    if (index < 0) {
+      items.add(item);
+    } else {
+      items[index] = item;
+    }
+    _fundingItemOverrides[draft.id] = items;
+  }
+
+  void _removeFundingItem(PlanningDraft draft, String itemId) {
+    _fundingItemOverrides[draft.id] = [
+      for (final item in _fundingItemsForDraft(draft))
+        if (item.id != itemId) item,
+    ];
   }
 
   EventCategory _planningCategory(PlanningDraft draft) {

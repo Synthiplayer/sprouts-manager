@@ -196,7 +196,10 @@ extension on _PlanningScreenState {
     PlanningDraft draft,
     PlanningScenario scenario,
   ) {
-    final income = _requiredGrossRevenueBeforeEvent(draft, scenario);
+    final income =
+        (_scenarioTargetAttendees(scenario) *
+            _requiredEarlyBirdPriceAtTargetOccupancy(draft, scenario)) +
+        _totalSupportEur(draft);
     final deductions = income *
         (_preEventSharePercent(draft) +
             _leakagePercent(draft) +

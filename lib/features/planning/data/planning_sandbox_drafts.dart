@@ -24,9 +24,6 @@ const List<PlanningDraft> planningSandboxDrafts = [
     reservePercent: 0.08,
     organizerMarginPercent: 0.06,
     postBreakEvenMarginPercent: 0.14,
-    fixedSponsorAmountEur: 1500,
-    supporterAmountEur: 2500,
-    grantAmountEur: 1000,
     technologyCostItems: [
       PlanningTechnologyCostItem(
         id: 'vengaboys-stage',
@@ -104,7 +101,6 @@ const List<PlanningDraft> planningSandboxDrafts = [
       PlanningPartnerProfile(
         name: 'Media Markt',
         type: PlanningPartnerType.advertisingPartner,
-        tier: PartnerTier.gold,
         audienceFocus: '20-35, technikaffin',
         expectedAmountEur: 1200,
         note:
@@ -113,7 +109,6 @@ const List<PlanningDraft> planningSandboxDrafts = [
       PlanningPartnerProfile(
         name: 'Lokaler Getraenkepartner',
         type: PlanningPartnerType.eventSponsor,
-        tier: PartnerTier.silver,
         audienceFocus: 'Konzert / Party',
         expectedAmountEur: 1500,
         note:
@@ -122,11 +117,10 @@ const List<PlanningDraft> planningSandboxDrafts = [
       PlanningPartnerProfile(
         name: 'Foerderkreis Eventhilfe',
         type: PlanningPartnerType.supporter,
-        tier: PartnerTier.custom,
         audienceFocus: 'Event findet statt',
         expectedAmountEur: 2500,
         note:
-            'Direkte Unterstuetzung, damit der Ticketpreis tragbar bleibt und das Event stattfindet.',
+            'Direkte Unterstuetzung, wenn echte Anmeldedaten genug Interesse zeigen.',
       ),
     ],
     upgradeStages: [

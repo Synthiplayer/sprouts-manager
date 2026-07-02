@@ -214,16 +214,6 @@ extension _PlanningEventDetailsTab on _PlanningScreenState {
               value,
             ),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _planningCategory(draft).toChip(),
-              _pill(context, _draftPlanningStatus(draft)),
-              _pill(context, _mainDecisionStatus(draft)),
-            ],
-          ),
           const SizedBox(height: 18),
           Align(
             alignment: Alignment.centerRight,

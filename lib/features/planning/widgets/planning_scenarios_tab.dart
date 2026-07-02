@@ -165,9 +165,15 @@ extension on _PlanningScreenState {
                       'Noetige Einnahmen vor Veranstaltung',
                       formatEuro(_totalPlannedCostsEur(draft, scenario)),
                     ),
+                    for (final row in _fundingDisplayRows(draft))
+                      _valueRow(row.$1, row.$2),
                     _valueRow(
-                      'Zu deckender Betrag nach Unterstuetzung',
-                      formatEuro(_amountToCoverAfterSupportEur(draft, scenario)),
+                      'Gesamte Gegenfinanzierung',
+                      formatEuro(_totalSupportEur(draft)),
+                    ),
+                    _valueRow(
+                      'Restbetrag für Ticketpreis',
+                      formatEuro(_amountToCoverForTicketPriceEur(draft, scenario)),
                     ),
                     _valueRow(
                       'Noetiger Early-Bird-Preis bei Zielauslastung',

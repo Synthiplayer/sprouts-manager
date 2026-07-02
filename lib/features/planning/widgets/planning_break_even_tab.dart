@@ -46,9 +46,15 @@ extension on _PlanningScreenState {
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
+                    for (final row in _fundingDisplayRows(draft))
+                      _valueRow(row.$1, row.$2),
                     _valueRow(
-                      'Zu deckender Betrag',
-                      formatEuro(_amountToCoverAfterSupportEur(draft, scenario)),
+                      'Gesamte Gegenfinanzierung',
+                      formatEuro(_totalSupportEur(draft)),
+                    ),
+                    _valueRow(
+                      'Restbetrag für Ticketpreis',
+                      formatEuro(_amountToCoverForTicketPriceEur(draft, scenario)),
                     ),
                     _valueRow(
                       'Zielteilnehmer fuer Break-even',
